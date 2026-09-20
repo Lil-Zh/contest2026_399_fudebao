@@ -1,0 +1,215 @@
+<template>
+  <div class="screen screen-round">
+    <div class="fit fit-round">
+      <div class="status-space"></div>
+      <text class="page-title">选择球场</text>
+      <list class="list" scrollpage="true">
+        <list-item class="section" type="recent-header" if="{{recent}}">
+          <text class="section-title">最近使用</text>
+        </list-item>
+        <list-item class="item-wrap" if="{{recent}}" type="recent">
+          <div class="pitch-card {{recent.selected ? 'pitch-card-on' : ''}}" onclick="onSelectRecent">
+            <div class="card-main">
+              <text class="pitch-name">{{recent.name}}</text>
+              <text class="pitch-size">{{recent.size}}</text>
+            </div>
+            <div if="{{recent.selected}}" class="check-dot"></div>
+          </div>
+        </list-item>
+
+        <list-item class="section" type="preset-header">
+          <text class="section-title">内置球场</text>
+        </list-item>
+        <list-item class="item-wrap" for="{{presets}}" tid="id" type="preset">
+          <div class="pitch-card {{$item.selected ? 'pitch-card-on' : ''}}" onclick="onSelectPreset($item.type)">
+            <div class="card-main">
+              <text class="pitch-name">{{$item.name}}</text>
+              <text class="pitch-size">{{$item.size}}</text>
+            </div>
+            <div if="{{$item.selected}}" class="check-dot"></div>
+          </div>
+        </list-item>
+
+        <list-item class="section" type="custom-header" if="{{customPitches.length > 0}}">
+          <text class="section-title">我的球场</text>
+        </list-item>
+        <list-item class="item-wrap" for="{{customPitches}}" tid="id" type="custom" if="{{customPitches.length > 0}}">
+          <div class="pitch-card {{$item.selected ? 'pitch-card-on' : ''}}" onclick="onSelectCustom($item.id)">
+            <div class="card-main">
+              <text class="pitch-name">{{$item.name}}</text>
+              <text class="pitch-size">{{$item.size}}</text>
+            </div>
+            <div if="{{$item.selected}}" class="check-dot"></div>
+          </div>
+        </list-item>
+
+        <list-item class="item-wrap" type="custom-entry">
+          <div class="pitch-card pitch-card-weak" onclick="onCreateCustom">
+            <div class="card-main">
+              <text class="pitch-name custom-name">自定义球场</text>
+              <text class="pitch-size">设置实际尺寸</text>
+            </div>
+            <image class="entry-arrow" src="/assets/images/chevron_right_weak.png"></image>
+          </div>
+        </list-item>
+      </list>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import { attachStorage, hydrateApp, pitchSelectorView, selectPitch, storageAdapter, useApp } from '../../common/app_state.js'
+import storage from '@system.storage'
+
+export default {
+  private: {
+    recent: null,
+    presets: [],
+    customPitches: []
+  },
+  onShow() {
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    hydrateApp().then(() => {
+      this.refresh()
+    }).catch(() => {
+      this.refresh()
+    })
+  },
+  refresh() {
+    const view = pitchSelectorView()
+    this.recent = view.recent
+    this.presets = view.presets
+    this.customPitches = view.customPitches
+  },
+  onSelectPreset(type) {
+    selectPitch(type).then(() => {
+      router.back()
+    }).catch(() => {})
+  },
+  onSelectCustom(id) {
+    selectPitch(id).then(() => {
+      router.back()
+    }).catch(() => {})
+  },
+  onSelectRecent() {
+    if (!this.recent) return
+    selectPitch(this.recent.id).then(() => {
+      router.back()
+    }).catch(() => {})
+  },
+  onCreateCustom() {
+    router.push({ uri: 'pages/CustomPitch' })
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  background-color: #050505;
+}
+.fit {
+  width: 376px;
+  height: 100%;
+  flex-direction: column;
+}
+.screen-round {
+  padding: 0;
+}
+.fit-round {
+  width: 336px;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+.status-space {
+  height: 52px;
+}
+.page-title {
+  color: #e5e5dc;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+  margin-top: 6px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.list {
+  flex: 1;
+  flex-direction: column;
+  width: 336px;
+}
+.section {
+  width: 336px;
+  height: 28px;
+  justify-content: flex-end;
+}
+.section-title {
+  color: #9d9d95;
+  font-size: 13px;
+  line-height: 18px;
+}
+.item-wrap {
+  width: 336px;
+  height: 82px;
+  margin-bottom: 8px;
+}
+.pitch-card {
+  width: 336px;
+  height: 74px;
+  border-radius: 18px;
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  flex-direction: row;
+  align-items: center;
+  padding: 0 16px;
+}
+.pitch-card-on {
+  border-color: #e7ff00;
+}
+.pitch-card-weak {
+  background-color: rgba(22, 24, 24, 0.72);
+}
+.card-main {
+  flex: 1;
+  flex-direction: column;
+}
+.pitch-name {
+  color: #e5e5dc;
+  font-size: 19px;
+  line-height: 26px;
+  font-weight: 600;
+}
+.custom-name {
+  color: #9d9d95;
+}
+.pitch-size {
+  color: #9d9d95;
+  font-size: 15px;
+  line-height: 21px;
+  margin-top: 2px;
+}
+.check-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color: #e7ff00;
+  margin-left: 10px;
+}
+.entry-arrow {
+  width: 16px;
+  height: 16px;
+  margin-left: 10px;
+}
+</style>

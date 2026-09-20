@@ -1,0 +1,290 @@
+<template>
+  <div class="screen {{round ? 'round' : ''}}" onswipe="onBackGesture" style="{{compact ? 'padding: 36px 0 20px;' : ''}}">
+    <div class="fit {{round ? 'fit-round' : ''}}">
+    <div class="resume-half {{round ? 'resume-half-round' : ''}}" onclick="onResumeFirstHalf">
+      <image class="resume-half-arrow" src="/assets/images/arrow_left_offwhite.png"></image>
+      <text class="resume-half-text">继续上半场</text>
+    </div>
+    <div class="ht-top {{round ? 'ht-top-round' : ''}}">
+      <div class="ht-chip">
+        <text class="ht-chip-text">上半场已结束</text>
+      </div>
+      <text class="ht-duration {{round ? 'ht-duration-round' : ''}}">{{firstHalfClock}}</text>
+    </div>
+    <div class="ht-center">
+      <text class="ht-title {{round ? 'ht-title-round' : ''}}">中场休息</text>
+      <div class="ht-stats">
+        <div class="ht-col">
+          <text class="ht-num">{{distanceNum}}</text>
+          <text class="ht-lab">距离 km</text>
+        </div>
+        <div class="ht-vline {{round ? 'ht-vline-round' : ''}}"></div>
+        <div class="ht-col">
+          <text class="ht-num">{{avgHr}}</text>
+          <text class="ht-lab">平均心率</text>
+        </div>
+        <div class="ht-vline {{round ? 'ht-vline-round' : ''}}"></div>
+        <div class="ht-col">
+          <text class="ht-num">{{maxHr}}</text>
+          <text class="ht-lab">最高心率</text>
+        </div>
+      </div>
+      <div class="ht-swap">
+        <image class="ht-swap-icon" src="/assets/images/swap_yellow.png"></image>
+        <text class="ht-swap-text">下半场自动换向 · 进攻</text>
+        <image class="ht-swap-arrow" src="{{nextArrowRight ? '/assets/images/arrow_right_offwhite.png' : '/assets/images/arrow_left_offwhite.png'}}"></image>
+        <text class="ht-swap-text">{{nextDirectionLabel}}</text>
+      </div>
+    </div>
+    <div class="cta {{round ? 'cta-round' : ''}}" onclick="onSecondHalf" style="{{compact ? 'height: 72px;' : ''}}">
+      <text class="cta-text">开始下半场</text>
+    </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import device from '@system.device'
+import { attachStorage, halftimeView, hydrateApp, isRoundScreen, resumeHalfTime, startSecondHalf, storageAdapter, useApp, isCompactScreen } from '../../common/app_state.js'
+
+export default {
+  private: {
+    compact: false,
+    round: false,
+    firstHalfClock: '45:00',
+    distanceNum: '0.0',
+    avgHr: '--',
+    maxHr: '--',
+    nextDirectionLabel: '左球门',
+    nextArrowRight: false
+  },
+  onShow() {
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    const self = this
+    device.getInfo({
+      success: function (res) {
+        var c = isCompactScreen(res.screenWidth, res.screenHeight)
+        var r = isRoundScreen(res.screenWidth, res.screenHeight)
+        // Mutating page data during the first render frame trips an LVGL
+        // rendering assertion on device; flip only after it settles.
+        setTimeout(function () {
+          if (self.compact !== c) self.compact = c
+          if (self.round !== r) self.round = r
+        }, 150)
+      },
+      fail: function () {}
+    })
+    hydrateApp().then(() => this.refresh())
+  },
+  refresh() {
+    const view = halftimeView()
+    if (!view) {
+      router.back()
+      return
+    }
+    this.firstHalfClock = view.firstHalfClock
+    this.distanceNum = view.distanceNum
+    this.avgHr = view.avgHr
+    this.maxHr = view.maxHr
+    this.nextDirectionLabel = view.nextDirectionLabel
+    this.nextArrowRight = view.nextArrowRight
+  },
+  // 中场页返回 = 继续上半场（恢复计时回记录主页，数据不断）
+  onBackGesture(evt) {
+    if (evt && evt.direction === 'right') this.onResumeFirstHalf()
+  },
+  onResumeFirstHalf() {
+    resumeHalfTime().then(() => {
+      router.back()
+    })
+  },
+  onSecondHalf() {
+    startSecondHalf().then(() => {
+      router.back()
+    })
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 0 20px;
+  align-items: center;
+  background-color: #050505;
+}
+/* 圆屏确定性布局：336px 安全列居中，圆屏数值直接固化进基础类，
+   不依赖 150ms 后生效的 round 绑定与不可靠的 flex:1/align-self */
+.fit {
+  width: 336px;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+/* ---- 圆屏差异覆盖（单类名 + 模板三元绑定；Vela 运行时 `.round .xxx`
+   后代选择器不生效——见 History 页注释） ---- */
+.fit-round {
+  width: 336px;
+}
+.resume-half-round {
+  align-self: center;
+}
+.ht-top-round {
+  flex-direction: column;
+  align-items: center;
+}
+.ht-duration-round {
+  margin-top: 6px;
+}
+.cta-round {
+  width: 296px;
+  align-self: center;
+}
+.ht-title-round {
+  font-size: 46px;
+  line-height: 56px;
+}
+.ht-vline-round {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+.resume-half {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  height: 34px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.resume-half-arrow {
+  width: 13px;
+  height: 13px;
+  margin-right: 5px;
+}
+.resume-half-text {
+  color: #e5e5dc;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.ht-top {
+  flex-direction: column;
+  align-items: center;
+}
+.ht-chip {
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.ht-chip-text {
+  color: #9d9d95;
+  font-size: 17px;
+  line-height: 24px;
+}
+.ht-duration {
+  color: #9d9d95;
+  font-size: 19px;
+  line-height: 26px;
+  font-weight: bold;
+  margin-top: 6px;
+}
+.ht-center {
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+}
+.ht-title {
+  color: #e5e5dc;
+  font-size: 40px;
+  line-height: 50px;
+  font-weight: bold;
+  text-align: center;
+}
+.ht-stats {
+  flex-direction: row;
+  align-items: center;
+  width: 336px;
+  border-top: 1px;
+  border-top-color: rgba(229, 229, 220, 0.12);
+  padding-top: 10px;
+  margin-top: 12px;
+}
+.ht-col {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+}
+.ht-vline {
+  width: 1px;
+  align-self: stretch;
+  background-color: rgba(229, 229, 220, 0.12);
+  margin-left: 12px;
+  margin-right: 12px;
+}
+.ht-num {
+  color: #e5e5dc;
+  font-size: 38px;
+  line-height: 46px;
+  font-weight: bold;
+  font-family: NumBold;
+}
+.ht-lab {
+  color: #9d9d95;
+  font-size: 16px;
+  line-height: 22px;
+  margin-top: 4px;
+}
+.ht-swap {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  background-color: #161818;
+  border-radius: 16px;
+  padding: 9px 16px;
+  margin-top: 12px;
+}
+.ht-swap-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+}
+.ht-swap-arrow {
+  width: 14px;
+  height: 14px;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+.ht-swap-text {
+  color: #9d9d95;
+  font-size: 16px;
+  line-height: 22px;
+}
+.cta {
+  width: 296px;
+  height: 54px;
+  align-self: center;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+.cta-text {
+  color: #050505;
+  font-size: 19px;
+  line-height: 27px;
+  font-weight: 600;
+}
+
+</style>

@@ -1,0 +1,11 @@
+{
+  "config": {
+    "designWidth": 466
+  },
+  "display": {
+    "backgroundColor": "#050505",
+    "fullScreen": true,
+    "titleBar": false,
+    "orientation": "portrait"
+  }
+}

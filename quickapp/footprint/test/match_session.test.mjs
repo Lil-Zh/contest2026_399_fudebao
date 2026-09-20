@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict'
+import { acknowledge, appendLocation, applyEvent, createMatch, recover, setDirection } from '../src/common/match_session.js'
+
+const match = createMatch({ sessionId: 'm1', fieldName: 'Test Field', attackDirection: 'goalA' })
+setDirection(match, 'goalB')
+assert.equal(match.direction, 'goalB')
+applyEvent(match, 'start', '2026-08-12T00:00:00Z')
+appendLocation(match, { latitude: 25.0, longitude: 121.0, accuracyMeters: 6, speedMetersPerSecond: 4, distanceDeltaMeters: 8 })
+applyEvent(match, 'halfTime')
+applyEvent(match, 'secondHalfStart')
+assert.equal(match.direction, 'goalA')
+applyEvent(match, 'sideSwitch')
+assert.equal(match.phase, 'recording')
+assert.equal(match.direction, 'goalB')
+acknowledge(match, 1)
+assert.equal(match.pending.length, 4)
+assert.equal(recover(JSON.stringify(match)).phase, 'recording')
+assert.throws(() => applyEvent(match, 'start'))
+assert.throws(() => applyEvent(match, 'end'), /confirmation/)
+applyEvent(match, 'end', undefined, { confirmed: true })
+assert.equal(match.phase, 'finished')
+console.log('match_session tests passed')

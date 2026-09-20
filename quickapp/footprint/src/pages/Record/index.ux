@@ -1,0 +1,1179 @@
+<template>
+  <div class="screen screen-round" onswipe="onPageSwipe">
+    <div class="fit fit-round">
+    <swiper class="pages" index="{{page}}" onchange="onSwipe" indicator="false">
+      <div class="page" onswipe="onPageSwipe" style="{{compact ? 'padding: 22px 0 20px;' : 'padding: 12px 0 46px;'}}">
+          <div class="page-grabber" onclick="openPanel">
+            <div class="grabber"></div>
+          </div>
+          <div if="{{gnssLost}}" class="lost-banner" style="{{compact ? 'align-self: center;' : ''}}">
+            <text class="lost-banner-text">GNSS 信号丢失 · 时间与心率继续记录</text>
+          </div>
+          <div class="chips chips-round">
+            <div class="chip chip-half">
+              <text class="chip-half-text">{{half}} · 进攻{{directionText}}</text>
+            </div>
+          </div>
+          <div class="state-row state-row-round" onclick="openPanel">
+            <block if="{{recording}}">
+              <div class="rec-dot {{pulseOn && !lowPower ? 'rec-on' : 'rec-dim'}}"></div>
+              <text class="rec-text">记录中</text>
+            </block>
+            <text if="{{paused}}" class="paused-text">已暂停 {{pausedClock}}</text>
+            <text if="{{recording && lowPower}}" class="lowpower-text">· 省电模式</text>
+            <div class="state-flex state-flex-round"></div>
+            <image class="chev-icon chev-icon-round" src="/assets/images/chevron_down_offwhite.png"></image>
+          </div>
+          <text class="timer {{paused ? 'timer-dim' : ''}}" style="font-size: 96px; line-height: 122px;">{{clock}}</text>
+          <div show="{{showStats}}" class="divider"></div>
+          <div show="{{showStats}}" class="stats">
+              <div class="stat">
+                <text class="stat-value {{paused ? 'stat-dim' : ''}}" style="{{compact ? 'font-size: 30px; line-height: 38px;' : ''}}">{{distanceNum}}</text>
+                <div class="stat-label-row">
+                  <image class="stat-icon-img {{paused ? 'stat-icon-dim' : ''}}" src="/assets/images/st_gnss.png"></image>
+                  <text class="stat-label">距离 km</text>
+                </div>
+              </div>
+              <div class="v-divider"></div>
+              <div class="stat">
+                <text class="stat-value {{paused ? 'stat-dim' : ''}}" style="{{compact ? 'font-size: 30px; line-height: 38px;' : ''}}">{{hrBpm}}</text>
+                <div class="stat-label-row">
+                  <image class="stat-icon-img {{paused ? 'stat-icon-dim' : ''}}" src="/assets/images/st_heart.png"></image>
+                  <text class="stat-label">心率 bpm</text>
+                </div>
+              </div>
+              <div class="v-divider"></div>
+              <div class="stat">
+                <text class="stat-value {{paused ? 'stat-dim' : ''}}" style="{{compact ? 'font-size: 26px; line-height: 38px;' : ''}}">{{pace}}</text>
+                <div class="stat-label-row">
+                  <image class="stat-icon-img {{paused ? 'stat-icon-dim' : ''}}" src="/assets/images/clock_line.png"></image>
+                  <text class="stat-label">配速 /km</text>
+                </div>
+              </div>
+          </div>
+          <!-- 该运行时子元素 align-self/margin-auto 居中不可靠（实测偏左 20px），
+               固定宽按钮统一包在全宽 justify-center 行里水平居中 -->
+          <div if="{{recording}}" class="btn-row" style="margin-top: 35px;">
+            <div class="pause-btn" onclick="onTogglePause" style="{{compact ? 'height: 58px;' : ''}}">
+              <div class="pause-bars">
+                <div class="pause-bar"></div>
+                <div class="pause-bar"></div>
+              </div>
+              <text class="pause-btn-text">暂停</text>
+            </div>
+          </div>
+          <block if="{{paused}}">
+            <div class="btn-row" style="margin-top: 35px;">
+              <div class="cta" onclick="onTogglePause" style="{{compact ? 'height: 58px;' : ''}}">
+                <div class="cta-inner">
+                  <text class="cta-text">继续</text>
+                  <image class="cta-arrow" src="/assets/images/arrow_right_dark.png"></image>
+                </div>
+              </div>
+            </div>
+            <text class="pause-hint">右滑进入控制页</text>
+          </block>
+          <div class="dots">
+            <div class="dot-on"></div>
+            <div class="dot-off"></div>
+          </div>
+      </div>
+      <div class="page" style="padding: 26px 0 46px;">
+        <div class="page-grabber" onclick="openPanel">
+          <div class="grabber"></div>
+        </div>
+        <div class="ctl-top ctl-top-round">
+          <text class="ctl-title">控 制</text>
+          <div class="ctl-chip ctl-chip-round">
+            <text class="ctl-chip-text">{{half}} · 进攻{{directionText}}</text>
+          </div>
+        </div>
+        <block if="{{endHalfEnabled}}">
+          <div class="end-half-card" onclick="onEndHalf">
+            <div class="eh-head">
+              <div class="eh-clock">
+                <div class="eh-clock-hand-v"></div>
+                <div class="eh-clock-hand-h"></div>
+              </div>
+              <text class="eh-title">{{endHalfTitle}}</text>
+              <text class="eh-sub">{{endHalfSubtitle}}</text>
+            </div>
+            <div class="eh-divider"></div>
+            <div class="info-card-inset">
+              <div class="info-row">
+                <div class="info-dot {{paused ? 'info-dot-paused' : ''}}"></div>
+                <text class="info-lab">{{paused ? '已暂停' : '记录中'}}</text>
+                <div class="info-flex"></div>
+                <text class="info-num">{{clock}}</text>
+              </div>
+              <div class="info-row">
+                <text class="info-lab">距离 · 心率</text>
+                <div class="info-flex"></div>
+                <text class="info-num">{{distanceNum}} km · {{hrBpm}} bpm</text>
+              </div>
+              <div class="info-row info-row-last">
+                <text class="info-lab">进攻方向</text>
+                <div class="info-flex"></div>
+                <div class="info-direction">
+                  <text class="info-value">{{directionLabel}}</text>
+                  <image class="info-arrow" src="{{arrowRight ? '/assets/images/arrow_right_yellow.png' : '/assets/images/arrow_left_offwhite.png'}}"></image>
+                </div>
+              </div>
+            </div>
+          </div>
+        </block>
+        <block else>
+          <div class="end-half-card end-half-readonly">
+            <div class="eh-head">
+              <div class="eh-clock eh-clock-readonly">
+                <div class="eh-clock-hand-v"></div>
+                <div class="eh-clock-hand-h"></div>
+              </div>
+              <text class="eh-title eh-title-readonly">{{endHalfTitle}}</text>
+              <text class="eh-sub">{{endHalfSubtitle}}</text>
+            </div>
+            <div class="eh-divider"></div>
+            <div class="info-card-inset">
+              <div class="info-row">
+                <div class="info-dot {{paused ? 'info-dot-paused' : ''}}"></div>
+                <text class="info-lab">{{paused ? '已暂停' : '记录中'}}</text>
+                <div class="info-flex"></div>
+                <text class="info-num">{{clock}}</text>
+              </div>
+              <div class="info-row">
+                <text class="info-lab">距离 · 心率</text>
+                <div class="info-flex"></div>
+                <text class="info-num">{{distanceNum}} km · {{hrBpm}} bpm</text>
+              </div>
+              <div class="info-row info-row-last">
+                <text class="info-lab">进攻方向</text>
+                <div class="info-flex"></div>
+                <div class="info-direction">
+                  <text class="info-value">{{directionLabel}}</text>
+                  <image class="info-arrow" src="{{arrowRight ? '/assets/images/arrow_right_yellow.png' : '/assets/images/arrow_left_offwhite.png'}}"></image>
+                </div>
+              </div>
+            </div>
+          </div>
+        </block>
+        <div class="spacer"></div>
+        <div class="end-match-row">
+          <div class="end-match-btn end-match-btn-round" onclick="onEndMatch" onlongpress="onEndMatch">
+            <text class="end-match-text">结束比赛</text>
+          </div>
+        </div>
+        <div class="dots dots-ctl">
+          <div class="dot-off"></div>
+          <div class="dot-on"></div>
+        </div>
+      </div>
+    </swiper>
+    </div>
+    <div show="{{panelOpen}}" class="panel-mask" onclick="closePanel" style="opacity: {{panelAlpha}};"></div>
+    <div show="{{panelOpen}}" class="sheet sheet-round" onclick="onPanelBodyTap" onswipe="onPanelSwipe" style="height: {{panelH}}px; top: {{panelY}}px;">
+      <div class="grabber-zone">
+        <div class="grabber"></div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-pill {{paused ? 'ctx-paused' : ''}}">
+          <text class="ctx-pill-text {{paused ? 'ctx-pill-text-paused' : ''}}">{{paused ? '已暂停' : '记录中'}}</text>
+        </div>
+        <div class="ctx-flex"></div>
+        <text class="ctx-clock">{{clock}}</text>
+      </div>
+      <div class="p-rows">
+        <div class="p-row" for="{{rowsA}}" tid="key" style="{{compact ? 'height: 46px;' : ''}}">
+          <image class="p-icon" src="{{ $item.icon }}"></image>
+          <text class="p-lab">{{ $item.label }}</text>
+          <div class="p-flex"></div>
+          <div class="dot {{ $item.tone }}"></div>
+          <text class="p-val {{ $item.tone === 'warn' ? 'p-val-warn' : '' }} {{ $item.key === 'gnss' && gnssSearching && !pulseOn ? 'p-val-dim' : '' }}">{{ $item.value }}</text>
+        </div>
+        <div class="p-row" onclick="goHistory" style="{{compact ? 'height: 46px;' : ''}}">
+          <image class="p-icon" src="{{queueRow.icon}}"></image>
+          <text class="p-lab">{{queueRow.label}}</text>
+          <div class="p-flex"></div>
+          <div class="dot {{queueRow.tone}}"></div>
+          <text class="p-val {{queueRow.tone === 'warn' ? 'p-val-warn' : ''}}">{{queueRow.value}}</text>
+          <image class="p-chev" src="/assets/images/chevron_right_gray.png"></image>
+        </div>
+        <div class="p-row" for="{{rowsB}}" tid="key" style="{{compact ? 'height: 46px;' : ''}}">
+          <image class="p-icon" src="{{ $item.icon }}"></image>
+          <text class="p-lab">{{ $item.label }}</text>
+          <div class="p-flex"></div>
+          <div class="dot {{ $item.tone }}"></div>
+          <text class="p-val {{ $item.tone === 'warn' ? 'p-val-warn' : '' }}">{{ $item.value }}</text>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <text class="p-caption">数据每秒写入本地，断连不丢失</text>
+    </div>
+    <div if="{{toastVisible}}" class="back-toast">
+      <text class="back-toast-text">比赛仍在记录中</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import device from '@system.device'
+import { attachStorage, endFirstHalf, hydrateApp, panelMotionFrame, persistMatch, recordView, storageAdapter, tickWorld, togglePause, useApp, isCompactScreen } from '../../common/app_state.js'
+
+export default {
+  private: {
+    compact: false,
+    page: 0,
+    panelOpen: false,
+    toastVisible: false,
+    panelAlpha: 0.72,
+    panelY: -400,
+    panelH: 466,
+    phase: 'recording',
+    half: '上半场',
+    arrow: '▶',
+    arrowRight: true,
+    directionLabel: '右球门',
+    directionOpposite: '左球门',
+    directionText: '',
+    clock: '00:00',
+    pausedClock: '00:00',
+    recording: false,
+    paused: false,
+    lowPower: false,
+    showStats: false,
+    gnssLost: false,
+    pulseOn: true,
+    hrBpm: 0,
+    distance: '0.0 km',
+    distanceNum: '0.0',
+    statusRows: [],
+    rowsA: [],
+    rowsB: [],
+    queueRow: { icon: '', label: '', value: '', tone: 'ok' },
+    gnssSearching: false,
+    controlTitle: '',
+    correctTo: '',
+    endHalfEnabled: true,
+    endHalfTitle: '结束上半场',
+    endHalfSubtitle: '进入中场休息 · 误点可返回继续',
+    pace: "--'--\""
+  },
+  onShow() {
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    const self = this
+    device.getInfo({
+      success: function (res) {
+        var c = isCompactScreen(res.screenWidth, res.screenHeight)
+        self.panelH = res.screenHeight || 466
+        setTimeout(function () {
+          if (self.compact !== c) self.compact = c
+        }, 150)
+      },
+      fail: function () {}
+    })
+    hydrateApp().then(() => {
+      const match = this._app.match
+      if (!match || match.phase === 'finished') {
+        router.back()
+        return
+      }
+      if (match.phase === 'halfTime') {
+        router.replace({ uri: 'pages/Halftime' })
+        return
+      }
+      this.refresh()
+    }).catch(() => {
+      // 水合失败时不能停在黑屏（定时器已在跑）：回启动页重新分发
+      router.replace({ uri: 'pages/Recovery' })
+    })
+    this._tickCount = 0
+    this._timer = setInterval(() => {
+      tickWorld(this._app.world, this._app.match)
+      if (this._app.match && this._app.match.phase === 'paused') this._app.pausedSeconds += 1
+      this._tickCount += 1
+      // 面板动画进行中跳过本轮渲染刷新与持久化（世界状态照常推进，
+      // 显示与存档顺延到下一秒），避免整页重绘/大 JSON 序列化卡住动画帧
+      if (this._panelAnim) return
+      if (this._tickCount % 10 === 0 && this._app.match) persistMatch()
+      this.refresh()
+    }, 1000)
+    this._pulse = setInterval(() => {
+      this.pulseOn = !this.pulseOn
+    }, 600)
+  },
+  onHide() {
+    clearInterval(this._timer)
+    clearInterval(this._pulse)
+    clearInterval(this._panelAnim)
+    clearTimeout(this._toastTimer)
+    this.panelOpen = false
+    this.toastVisible = false
+  },
+  onDestroy() {
+    clearInterval(this._timer)
+    clearInterval(this._pulse)
+    clearInterval(this._panelAnim)
+    clearTimeout(this._toastTimer)
+  },
+  refresh() {
+    const view = recordView(this._app.pausedSeconds)
+    if (!view) return
+    // 逐项变更守卫：秒级 tick 里大多数字段其实没变，盲目赋值会触发
+    // 整页重复 diff/重绘（与 Prematch 页同款约定），动画期间尤其明显。
+    // 值确实每秒都在变的（clock/心率/距离/配速）保持直赋。
+    if (this.phase !== view.phase) this.phase = view.phase
+    if (this.half !== view.half) this.half = view.half
+    if (this.arrow !== view.arrow) this.arrow = view.arrow
+    this.arrowRight = view.arrow === '▶'
+    if (this.directionText !== view.directionText) this.directionText = view.directionText
+    if (this.directionLabel !== view.directionLabel) this.directionLabel = view.directionLabel
+    if (this.directionOpposite !== view.directionOpposite) this.directionOpposite = view.directionOpposite
+    if (this.clock !== view.clock) this.clock = view.clock
+    if (this.pausedClock !== view.pausedClock) this.pausedClock = view.pausedClock
+    if (this.recording !== view.recording) this.recording = view.recording
+    if (this.paused !== view.paused) this.paused = view.paused
+    if (this.lowPower !== view.lowPower) this.lowPower = view.lowPower
+    const showStats = view.recording || view.paused
+    if (this.showStats !== showStats) this.showStats = showStats
+    if (this.gnssLost !== view.gnssLost) this.gnssLost = view.gnssLost
+    if (!view.paused) {
+      if (this.hrBpm !== view.hrBpm) this.hrBpm = view.hrBpm
+      if (this.distance !== view.distance) this.distance = view.distance
+      const distanceNum = String(view.distance || '').replace(' km', '')
+      if (this.distanceNum !== distanceNum) this.distanceNum = distanceNum
+      if (this.pace !== view.pace) this.pace = view.pace
+    }
+    // 内容不变时跳过赋值：statusRows 换新数组会触发五行全量 diff，秒级轮询里大多为空转。
+    // 面板渲染拆成 rowsA(头部两行：GNSS/心率)/queueRow(可点进台账)/rowsB(尾部两行)
+    const rowsJson = JSON.stringify(view.statusRows)
+    if (rowsJson !== this._lastRowsJson) {
+      this._lastRowsJson = rowsJson
+      this.rowsA = view.statusRows.filter(r => r.key === 'gnss' || r.key === 'hr')
+      this.queueRow = view.statusRows.find(r => r.key === 'queue') || { icon: '', label: '', value: '', tone: 'ok' }
+      this.rowsB = view.statusRows.filter(r => r.key === 'battery' || r.key === 'storage')
+    }
+    if (this.gnssSearching !== view.gnssSearching) this.gnssSearching = view.gnssSearching
+    if (this.controlTitle !== view.controlTitle) this.controlTitle = view.controlTitle
+    if (this.correctTo !== view.correctTo) this.correctTo = view.correctTo
+    if (this.endHalfEnabled !== view.endHalfEnabled) this.endHalfEnabled = view.endHalfEnabled
+    if (this.endHalfTitle !== view.endHalfTitle) this.endHalfTitle = view.endHalfTitle
+    if (this.endHalfSubtitle !== view.endHalfSubtitle) this.endHalfSubtitle = view.endHalfSubtitle
+  },
+  onSwipe(evt) {
+    if (evt && typeof evt.index === 'number') this.page = evt.index
+  },
+  // 状态面板：任意位置下滑呼出（避开系统通知中心的顶部边缘手势），
+  // 上滑或点击提示行关闭。松手回弹需要 touchmove 跟踪，平台不派发，故不可用。
+  onPageSwipe(evt) {
+    if (!evt || !evt.direction) return
+    if (evt.direction === 'down') {
+      if (!this.panelOpen) this.openPanel()
+      return
+    }
+    if (evt.direction === 'right') this.onBackGesture()
+  },
+  // 全局返回（右滑=返回，平台无系统 back 钩子，系统计算器同款惯例）：
+  // 面板开着先收面板；控制页回主页（与横滑同效）；主页吞掉返回并弹
+  // 3 秒提示——terminate 退出会挂起进程、采集停摆，「返回永不停采集」
+  // 只有留在前台能满足；用户杀应用后由恢复页领回记录。
+  onBackGesture() {
+    // .page 与 .screen 双重 onswipe 让一次右滑冒泡触发两次（该 runtime
+    // stopPropagation 无效），时间窗去重：同一次滑动只响应一回
+    const now = Date.now()
+    if (this._lastBackAt && now - this._lastBackAt < 400) return
+    this._lastBackAt = now
+    if (this.panelOpen) {
+      this.closePanel()
+      return
+    }
+    if (this.page === 1) {
+      this.page = 0
+      return
+    }
+    this.toastVisible = true
+    clearTimeout(this._toastTimer)
+    this._toastTimer = setTimeout(() => {
+      this.toastVisible = false
+    }, 3000)
+  },
+  openPanel() {
+    if (this.panelOpen) return
+    // 常驻挂载（show 切换）：打开前先归位到屏外/全透明，避免残留值闪一帧
+    this.panelAlpha = 0
+    this.panelY = -this.panelH
+    this.panelOpen = true
+    this.animatePanel(1)
+  },
+  closePanel() {
+    if (!this.panelOpen) return
+    this.animatePanel(-1)
+  },
+  // Vela 模拟器的动态 transform 会在页面首次创建时中断渲染，故位移回退到
+  // 原生 top。时间轴改为实时时钟与 16ms 刷新，帧迟到不会累积并拖慢动画。
+  animatePanel(dir) {
+    clearInterval(this._panelAnim)
+    const h = this.panelH
+    const direction = dir > 0 ? 'open' : 'close'
+    const startedAt = Date.now()
+    const self = this
+    const draw = function () {
+      const frame = panelMotionFrame(direction, Date.now() - startedAt, h)
+      // 帧值取整后常与上一帧相同，跳过同值赋值避免多余的 patch/重绘
+      if (frame.translateY !== self.panelY) self.panelY = frame.translateY
+      if (frame.opacity !== self.panelAlpha) self.panelAlpha = frame.opacity
+      if (frame.done) {
+        clearInterval(self._panelAnim)
+        self._panelAnim = null
+        if (dir < 0) self.panelOpen = false
+      }
+    }
+    draw()
+    this._panelAnim = setInterval(() => {
+      draw()
+    }, 16)
+  },
+  onPanelSwipe(evt) {
+    if (evt && evt.direction === 'up') this.closePanel()
+  },
+  onPanelBodyTap() {},
+  goPage0() {
+    this.page = 0
+  },
+  goPage1() {
+    this.page = 1
+  },
+  onTogglePause() {
+    togglePause()
+    this.refresh()
+  },
+  onEndHalf() {
+    if (!this.endHalfEnabled) return
+    endFirstHalf().then(() => {
+      router.push({ uri: 'pages/Halftime' })
+    })
+  },
+  // 结束比赛入口：longpress 是手势级事件（与已验证可用的 swipe 同族），
+  // 但平台未证实，故 onclick 同时放行——EndConfirm 页本身有两步确认，
+  // 误触只会到达确认页，不可逆操作的成本不变，按钮则永远不会是死的。
+  onEndMatch() {
+    router.push({ uri: 'pages/EndConfirm' })
+  },
+  goHistory() {
+    this.closePanel()
+    router.push({ uri: 'pages/History' })
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBlack;
+  src: url('/assets/fonts/NumBlack.ttf');
+}
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  background-color: #050505;
+}
+/* 适配层：固定 376px 内容列居中。大赛 5.0 镜像的快应用视口（约 488px）
+   比面板（432px）宽且居中，居中内容列在两种镜像下都恰好落在可视安全区 */
+.fit {
+  width: 376px;
+  height: 100%;
+  flex-direction: column;
+}
+/* ---- 466px 圆屏专用布局：直接类名，避免 Vela 不支持的后代选择器 ---- */
+.screen-round {
+  padding: 0;
+}
+.fit-round {
+  width: 336px;
+}
+.chips-round {
+  justify-content: center;
+}
+.chip-flex-round {
+  display: none;
+}
+.chip-attack-round {
+  margin-left: 10px;
+}
+.state-row-round {
+  justify-content: center;
+}
+.state-flex-round {
+  display: none;
+}
+.chev-icon-round {
+  display: none;
+}
+.pause-btn-round { }
+.cta-round { }
+.end-match-btn-round { }
+/* 圆屏：控制行与半场卡片整体下移，空白由中部 spacer 吸收，结束比赛按钮位置不变 */
+.ctl-top-round {
+  margin-top: 18px;
+}
+.ctl-chip-round { }
+.dots-ctl { }
+/* 整页式面板：全宽全高，四角交给圆屏物理裁切，视觉紧贴表盘边缘 */
+.sheet-round {
+  left: 0;
+  right: 0;
+  border-radius: 0;
+}
+.pages {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+}
+.page {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+.page-grabber {
+  width: 100%;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+}
+.chips {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+.chip {
+  background-color: #181a1b;
+  border-radius: 999px;
+  padding: 5px 14px;
+}
+.chip-half {
+  /* 图3 参考：荧光黄绿全圆角实心胶囊，内黑字，与右侧灰白信息同行 */
+  background-color: #e7ff00;
+  border-radius: 999px;
+  padding: 4px 14px;
+}
+.chip-half-text {
+  color: #0a0a0a;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: bold;
+}
+.chip-attack {
+  background-color: transparent;
+  border-radius: 0px;
+  padding: 5px 0px;
+}
+.chip-text {
+  color: #9d9d95;
+  font-size: 17px;
+  line-height: 24px;
+}
+.chip-row {
+  flex-direction: row;
+  align-items: center;
+}
+.chip-arrow {
+  width: 13px;
+  height: 13px;
+  margin-left: 4px;
+}
+.chip-arrow-accent {
+  margin-right: 2px;
+}
+.dir-text {
+  margin-left: 4px;
+}
+.chip-flex {
+  flex: 1;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  margin-right: 8px;
+}
+.ok {
+  background-color: #e7ff00;
+}
+.warn {
+  background-color: #ffb020;
+}
+.timer {
+  color: #e5e5dc;
+  font-size: 120px;
+  line-height: 152px;
+  font-weight: 900;
+  font-family: NumBlack;
+  margin-top: 4px;
+  text-align: center;
+}
+.timer-dim {
+  color: #6d6d66;
+}
+.state-row {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 10px;
+}
+.state-flex {
+  flex: 1;
+}
+.chev-icon {
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+}
+.rec-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  margin-right: 8px;
+}
+.rec-on {
+  background-color: #e7ff00;
+}
+.rec-dim {
+  background-color: rgba(231, 255, 0, 0.35);
+}
+.rec-text {
+  color: #e7ff00;
+  font-size: 20px;
+  line-height: 28px;
+}
+.paused-text {
+  color: #9d9d95;
+  font-size: 24px;
+  line-height: 33px;
+}
+.lowpower-text {
+  color: #ffb020;
+  font-size: 20px;
+  line-height: 28px;
+  margin-left: 10px;
+}
+.divider {
+  height: 1px;
+  background-color: rgba(229, 229, 220, 0.12);
+  margin-top: 10px;
+}
+.v-divider {
+  width: 1px;
+  align-self: stretch;
+  background-color: rgba(229, 229, 220, 0.12);
+}
+.stats {
+  flex-direction: row;
+  margin-top: 8px;
+}
+.stat {
+  flex-direction: column;
+  flex: 1;
+  align-items: center;
+}
+.stat-label {
+  color: #9d9d95;
+  font-size: 17px;
+  line-height: 24px;
+}
+.stat-label-row {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 4px;
+}
+.stat-icon-img {
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+}
+.stat-icon-dim {
+  opacity: 0.4;
+}
+.stat-value {
+  color: #e5e5dc;
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 900;
+  font-family: NumBold;
+}
+.stat-dim {
+  color: #6d6d66;
+}
+.spacer {
+  flex: 1;
+}
+.pause-btn {
+  width: 296px;
+  height: 54px;
+  align-self: center;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.pause-bars {
+  flex-direction: row;
+  align-items: center;
+  margin-right: 8px;
+}
+.pause-bar {
+  width: 5px;
+  height: 20px;
+  border-radius: 2px;
+  background-color: #0a0a0a;
+  margin-left: 2px;
+  margin-right: 2px;
+}
+.pause-btn-text {
+  color: #0a0a0a;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: bold;
+}
+.btn-row {
+  width: 100%;
+  flex-direction: row;
+  justify-content: center;
+}
+.cta-inner {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.cta-arrow {
+  width: 13px;
+  height: 13px;
+  margin-left: 5px;
+}
+.cta {
+  width: 296px;
+  height: 54px;
+  align-self: center;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+}
+.cta-text {
+  color: #0a0a0a;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: bold;
+}
+.pause-hint {
+  color: #9d9d95;
+  font-size: 13px;
+  line-height: 18px;
+  margin-top: 8px;
+  text-align: center;
+}
+/* 页点：absolute 定位 bottom 16px，全站页点同位（7px、#e5e5dc/#5d5d58），不占流式布局 */
+.dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  height: 7px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.dot-on {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background-color: #e5e5dc;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.dot-off {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background-color: #5d5d58;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.title {
+  color: #e5e5dc;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+.panel-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #050505;
+  opacity: 0;
+}
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  background-color: #0c0d0d;
+  border-radius: 0;
+  flex-direction: column;
+  /* 顶部 52px 避开上弧窄弦区（内容起点 y=80 处弦宽 352px > 内容 346px）；
+     两侧 60px 让内容落在 336px 安全列；底部 46px 让说明文字避开弦切区 */
+  padding: 52px 60px 46px;
+}
+.grabber-zone {
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+}
+.grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #5d5d58;
+}
+.ctx-row {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 2px;
+}
+.ctx-pill {
+  background-color: #e7ff00;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+.ctx-paused {
+  background-color: transparent;
+  border: 1px;
+  border-color: #ffb020;
+}
+.ctx-pill-text {
+  color: #0a0a0a;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: bold;
+}
+.ctx-pill-text-paused {
+  color: #ffb020;
+}
+.ctx-flex {
+  flex: 1;
+}
+.ctx-clock {
+  color: #9d9d95;
+  font-size: 19px;
+  line-height: 26px;
+  font-family: NumBold;
+}
+.p-rows {
+  flex-direction: column;
+  margin-top: 6px;
+}
+.p-row {
+  flex-direction: row;
+  align-items: center;
+  height: 52px;
+  border-bottom: 1px;
+  border-bottom-color: rgba(229, 229, 220, 0.12);
+}
+.p-icon {
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+}
+.p-chev {
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+}
+.p-lab {
+  color: #9d9d95;
+  font-size: 18px;
+  line-height: 26px;
+}
+.p-flex {
+  flex: 1;
+}
+.p-val {
+  color: #e5e5dc;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+.p-val-warn {
+  color: #ffb020;
+}
+.p-val-dim {
+  color: #6d6d66;
+}
+.p-caption {
+  color: #9d9d95;
+  font-size: 15px;
+  line-height: 22px;
+  text-align: center;
+  margin-top: 8px;
+}
+.back-toast {
+  position: absolute;
+  left: 60px;
+  right: 60px;
+  bottom: 110px;
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  border-radius: 999px;
+  padding: 11px 0;
+  align-items: center;
+}
+.back-toast-text {
+  color: #e5e5dc;
+  font-size: 15px;
+  line-height: 21px;
+}
+.rows {
+  flex-direction: column;
+}
+.stat-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 2px;
+}
+.row-lab {
+  color: #9d9d95;
+  font-size: 18px;
+  line-height: 25px;
+}
+.row-val-wrap {
+  flex-direction: row;
+  align-items: center;
+}
+.row-val {
+  color: #e5e5dc;
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: bold;
+}
+.row-warn {
+  color: #ffb020;
+}
+.ctl-top {
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ctl-title {
+  color: #9d9d95;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: 3px;
+}
+.ctl-chip {
+  background-color: #e7ff00;
+  border-radius: 999px;
+  padding: 4px 14px;
+  margin-left: 10px;
+}
+.ctl-chip-text {
+  color: #050505;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+}
+.end-half-card {
+  width: 100%;
+  height: 248px;
+  border-radius: 28px;
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 18px;
+}
+.end-half-readonly {
+  background-color: transparent;
+}
+.eh-clock {
+  width: 36px;
+  height: 36px;
+  border: 2px;
+  border-color: #e7ff00;
+  border-radius: 18px;
+  position: relative;
+}
+.eh-clock-readonly {
+  opacity: 0.45;
+}
+.eh-clock-hand-v {
+  position: absolute;
+  left: 15px;
+  top: 6px;
+  width: 2px;
+  height: 11px;
+  background-color: #e7ff00;
+}
+.eh-clock-hand-h {
+  position: absolute;
+  left: 16px;
+  top: 15px;
+  width: 8px;
+  height: 2px;
+  background-color: #e7ff00;
+}
+.eh-head {
+  flex-direction: column;
+  align-items: center;
+}
+.eh-title {
+  color: #e7ff00;
+  font-size: 28px;
+  line-height: 38px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+.eh-title-readonly {
+  color: #9d9d95;
+}
+.eh-sub {
+  color: #5d5d58;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 4px;
+}
+.eh-divider {
+  width: 100%;
+  height: 1px;
+  background-color: rgba(229, 229, 220, 0.1);
+  margin-top: 12px;
+}
+.info-card-inset {
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
+.info-card {
+  width: 100%;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  border-radius: 20px;
+  margin-top: 14px;
+  background-color: transparent;
+  flex-direction: column;
+}
+.info-row {
+  width: 100%;
+  height: 44px;
+  flex-direction: row;
+  align-items: center;
+  padding: 13px 18px;
+  border-bottom: 1px;
+  border-bottom-color: rgba(229, 229, 220, 0.12);
+}
+.info-row-last {
+  border-bottom: 0px;
+}
+.info-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #e7ff00;
+  margin-right: 8px;
+}
+.info-dot-paused {
+  background-color: #ffb020;
+}
+.info-lab {
+  color: #9d9d95;
+  font-size: 17px;
+  line-height: 24px;
+}
+.info-flex {
+  flex: 1;
+}
+.info-num {
+  color: #e5e5dc;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+  font-family: NumBold;
+}
+.info-value {
+  color: #e5e5dc;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.info-direction {
+  flex-direction: row;
+  align-items: center;
+}
+.info-arrow {
+  width: 13px;
+  height: 13px;
+  margin-left: 6px;
+}
+.info-note {
+  color: #5d5d58;
+  font-size: 13px;
+  line-height: 18px;
+  margin-left: 6px;
+}
+/* 结束比赛按钮：外层全宽行负责居中（此镜像 align-self 对部分节点不生效） */
+.end-match-row {
+  flex-direction: row;
+  width: 100%;
+  justify-content: center;
+}
+.end-match-btn {
+  width: 296px;
+  height: 56px;
+  border-radius: 999px;
+  background-color: rgba(255, 90, 69, 0.08);
+  border: 2px;
+  border-color: rgba(255, 90, 69, 0.75);
+  align-items: center;
+  justify-content: center;
+}
+.end-match-text {
+  color: #ff5a45;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.lost-banner {
+  background-color: rgba(255, 176, 32, 0.16);
+  border-radius: 12px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.lost-banner-text {
+  color: #ffb020;
+  font-size: 15px;
+  line-height: 21px;
+}
+
+</style>

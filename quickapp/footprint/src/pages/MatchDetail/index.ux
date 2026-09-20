@@ -1,0 +1,237 @@
+<template>
+  <div class="screen" onswipe="onDetailSwipe">
+    <div class="fit">
+      <block if="{{ready}}">
+      <div class="content" style="top: {{contentY}}px;">
+        <div class="status-space"></div>
+        <div class="top">
+          <text class="title">{{title}}</text>
+          <text class="sub">{{meta}}</text>
+        </div>
+        <div class="hero">
+          <text class="hero-num">{{duration}}</text>
+          <text class="hero-lab">运动时长</text>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <text class="row-lab">距离</text>
+            <text class="row-val">{{distance}}</text>
+          </div>
+          <div class="row">
+            <text class="row-lab">平均配速</text>
+            <text class="row-val">{{pace}}</text>
+          </div>
+          <div class="row">
+            <text class="row-lab">平均心率</text>
+            <text class="row-val">{{avgHr}}</text>
+          </div>
+          <div class="row">
+            <text class="row-lab">最高心率</text>
+            <text class="row-val">{{maxHr}}</text>
+          </div>
+          <div class="row">
+            <text class="row-lab">球场</text>
+            <text class="row-val">{{pitchName}}</text>
+          </div>
+          <div class="row" if="{{pitchSize}}">
+            <text class="row-lab">场地尺寸</text>
+            <text class="row-val">{{pitchSize}}</text>
+          </div>
+          <div class="row row-last">
+            <text class="row-lab">场地校准</text>
+            <text class="row-val">{{calibration}}</text>
+          </div>
+        </div>
+      </div>
+      </block>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import { attachStorage, detailScrollClamp, detailScrollFrame, detailScrollMax, DETAIL_SCROLL_DURATION, DETAIL_SCROLL_STEP, historyDetailView, hydrateApp, storageAdapter } from '../../common/app_state.js'
+
+export default {
+  private: {
+    ready: false,
+    title: '',
+    meta: '',
+    duration: '',
+    distance: '',
+    pace: '',
+    avgHr: '',
+    maxHr: '',
+    pitchName: '',
+    pitchSize: '',
+    calibration: '',
+    scrollOffset: 0,
+    contentY: 0
+  },
+  onShow() {
+    this.ready = false
+    this.scrollOffset = 0
+    this.contentY = 0
+    attachStorage(storageAdapter(storage))
+    // 路由 params 在设备上统一转成 String 注入页面实例（this.sessionId）
+    const sessionId = this.sessionId || ''
+    hydrateApp().then(() => {
+      const view = historyDetailView(sessionId)
+      if (!view) {
+        router.back()
+        return
+      }
+      this.title = view.title
+      this.meta = view.meta
+      this.duration = view.duration
+      this.distance = view.distance
+      this.pace = view.pace
+      this.avgHr = view.avgHr
+      this.maxHr = view.maxHr
+      this.pitchName = view.pitchName
+      this.pitchSize = view.pitchSize
+      this.calibration = view.calibration
+      this.ready = true
+    })
+  },
+  onDestroy() {
+    clearInterval(this._scrollAnim)
+  },
+  // 竖向滑屏：上滑看底部内容、下滑回顶、右滑返回。
+  // 该 runtime 只有 swipe 事件且动态 transform 会中断首帧渲染，
+  // 位移走原生 top + 实时时钟分帧（与 Record 面板同法）。
+  onDetailSwipe(evt) {
+    if (!evt) return
+    if (evt.direction === 'right') {
+      router.back()
+      return
+    }
+    if (evt.direction === 'up') this.animateScroll(this.scrollOffset + DETAIL_SCROLL_STEP)
+    else if (evt.direction === 'down') this.animateScroll(this.scrollOffset - DETAIL_SCROLL_STEP)
+  },
+  animateScroll(to) {
+    clearInterval(this._scrollAnim)
+    const target = detailScrollClamp(to)
+    const from = this.scrollOffset
+    const startedAt = Date.now()
+    const self = this
+    const draw = function () {
+      const frame = detailScrollFrame(from, target, Date.now() - startedAt, DETAIL_SCROLL_DURATION)
+      // 帧值取整后常与上一帧相同，跳过同值赋值避免多余的 patch/重绘
+      if (frame.offset !== self.scrollOffset) {
+        self.scrollOffset = frame.offset
+        self.contentY = frame.y
+      }
+      if (frame.done) {
+        clearInterval(self._scrollAnim)
+        self._scrollAnim = null
+      }
+    }
+    draw()
+    this._scrollAnim = setInterval(draw, 16)
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  background-color: #050505;
+}
+.fit {
+  width: 384px;
+  height: 100%;
+  flex-direction: column;
+  position: relative;
+}
+.status-space {
+  height: 96px;
+}
+/* 竖向滑屏布局：内容整体包进 .content，由 swipe 事件驱动 top 位移
+   （该 runtime 动态 transform 会中断首帧渲染）。status-space 在 content
+   内部占高——绝对定位的 content 不受外部兄弟节点影响。全部子块定高，
+   总高 696px 与 app_state.js 的 DETAIL_CONTENT_HEIGHT 保持一致 */
+.content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 384px;
+  flex-direction: column;
+  align-items: center;
+}
+.top {
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.title {
+  color: #e5e5dc;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 700;
+}
+.sub {
+  color: #9d9d95;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 4px;
+}
+.hero {
+  flex-direction: column;
+  align-items: center;
+  margin: 8px 0 18px;
+}
+.hero-num {
+  color: #e7ff00;
+  font-size: 64px;
+  line-height: 76px;
+  font-weight: 700;
+  font-family: NumBold;
+  font-variant-numeric: tabular-nums;
+}
+.hero-lab {
+  color: #9d9d95;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 2px;
+}
+.rows {
+  flex-direction: column;
+  width: 384px;
+  padding: 0 18px;
+  border-radius: 28px;
+  background-color: #161818;
+  margin-bottom: 36px;
+}
+.row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  border-bottom: 1px;
+  border-bottom-color: rgba(229, 229, 220, 0.12);
+}
+.row-last {
+  border-bottom-width: 0;
+}
+.row-lab {
+  color: #9d9d95;
+  font-size: 16px;
+  line-height: 22px;
+}
+.row-val {
+  color: #e5e5dc;
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: 600;
+}
+</style>

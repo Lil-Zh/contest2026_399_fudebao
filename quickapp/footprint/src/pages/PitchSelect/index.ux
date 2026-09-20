@@ -1,0 +1,170 @@
+<template>
+  <div class="screen">
+    <div class="status-space"></div>
+    <div class="pitch">
+      <div class="pitch-mid"></div>
+      <div class="pitch-circle"></div>
+      <div class="pitch-box-l"></div>
+      <div class="pitch-box-r"></div>
+    </div>
+    <!-- 下拉标直接跟在标题文字后（无框），点按弹出球场列表 -->
+    <div class="title-row" onclick="onPick">
+      <text class="title">{{pitchName}}</text>
+      <image class="chev" src="/assets/images/chevron_down_offwhite.png"></image>
+    </div>
+    <text class="sub">{{sub}}</text>
+    <div class="spacer"></div>
+    <div class="cta {{canStart ? '' : 'cta-disabled'}}" onclick="onStart">
+      <text class="cta-text {{canStart ? '' : 'cta-text-disabled'}}">开始比赛</text>
+    </div>
+    <div class="bottom-space"></div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import { attachStorage, hydrateApp, recoveryPitchView, startMatch, storageAdapter, useApp } from '../../common/app_state.js'
+
+export default {
+  private: {
+    pitchName: '请选择球场',
+    sub: '无需连接手机，随时开始记录',
+    canStart: false
+  },
+  onShow() {
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    // 从球场列表返回时 onShow 会再次触发，这里重新读取选中结果
+    hydrateApp().then(() => this.refresh()).catch(() => this.refresh())
+  },
+  refresh() {
+    const view = recoveryPitchView()
+    this.pitchName = view.pitchName
+    this.sub = view.selected ? view.pitchSize : '无需连接手机，随时开始记录'
+    this.canStart = view.canStart
+  },
+  onPick() {
+    router.push({ uri: 'pages/PitchSelector' })
+  },
+  onStart() {
+    if (!this.canStart) return
+    startMatch('goalB').then(() => {
+      router.push({ uri: 'pages/Record' })
+    })
+  }
+}
+</script>
+
+<style>
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  background-color: #050505;
+}
+/* 顶部系统状态栏预留 */
+.status-space {
+  height: 52px;
+}
+/* 球场示意图（较参考稿放大）：160×106 圆角外框 + 中线/中圈/禁区 */
+.pitch {
+  flex-direction: row;
+  width: 160px;
+  height: 106px;
+  border: 2px;
+  border-color: #3a3c3e;
+  border-radius: 14px;
+  justify-content: center;
+  align-items: center;
+}
+.pitch-mid {
+  position: absolute;
+  left: 79px;
+  top: 5px;
+  width: 2px;
+  height: 96px;
+  background-color: #3a3c3e;
+}
+.pitch-circle {
+  width: 44px;
+  height: 44px;
+  border: 2px;
+  border-color: #3a3c3e;
+  border-radius: 22px;
+}
+.pitch-box-l {
+  position: absolute;
+  left: 0;
+  top: 29px;
+  width: 22px;
+  height: 48px;
+  border: 2px;
+  border-color: #3a3c3e;
+}
+.pitch-box-r {
+  position: absolute;
+  right: 0;
+  top: 29px;
+  width: 22px;
+  height: 48px;
+  border: 2px;
+  border-color: #3a3c3e;
+}
+/* 标题 + 下拉标：整行可点，直接弹出球场列表 */
+.title-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+}
+.title {
+  color: #e5e5dc;
+  font-size: 26px;
+  line-height: 34px;
+  font-weight: 700;
+}
+.chev {
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+}
+.sub {
+  color: #9d9d95;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 8px;
+}
+.spacer {
+  flex: 1;
+}
+/* 开始比赛：296×54 黄底胶囊；未选球场时置灰不可点 */
+.cta {
+  width: 296px;
+  height: 54px;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+}
+.cta-text {
+  color: #050505;
+  font-size: 19px;
+  line-height: 27px;
+  font-weight: 600;
+}
+.cta-disabled {
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+}
+.cta-text-disabled {
+  color: #5d5d58;
+}
+/* 底部弦切安全区 */
+.bottom-space {
+  height: 46px;
+}
+</style>

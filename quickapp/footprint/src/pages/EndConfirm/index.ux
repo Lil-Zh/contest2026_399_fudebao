@@ -1,0 +1,208 @@
+<template>
+  <div class="screen {{round ? 'round' : ''}}" onclick="onCancel" onswipe="onBackGesture" style="{{compact ? 'padding: 36px 0 20px;' : ''}}">
+    <div class="fit {{round ? 'fit-round' : ''}}">
+    <div class="spacer"></div>
+    <div class="wrap {{round ? 'wrap-round' : ''}}">
+      <text class="title" style="{{compact ? 'font-size: 32px; line-height: 40px;' : ''}}">结束比赛？</text>
+      <text class="sub">数据将保存到手表</text>
+      <text class="sub">结束后无法继续记录本场</text>
+    </div>
+    <div class="end-btn {{round ? 'end-btn-round' : ''}} {{endArmed ? 'end-armed' : ''}}" onclick="onConfirm" style="{{compact ? 'height: 76px;' : ''}}">
+      <div class="stop-icon"></div>
+      <text class="end-label">{{confirmLabel}}</text>
+    </div>
+    <text class="cancel">{{endArmed ? '倒计时中 · 点击空白处取消' : '点击空白处取消'}}</text>
+    <div class="spacer"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import device from '@system.device'
+import { attachStorage, confirmEnd, hydrateApp, isRoundScreen, storageAdapter, useApp, isCompactScreen } from '../../common/app_state.js'
+
+export default {
+  private: {
+    compact: false,
+    round: false,
+    endArmed: false,
+    countdown: 0,
+    confirmLabel: '确认结束比赛'
+  },
+  onShow() {
+    // Recovery 的点击会在换页帧内残留一次；若此时把它当成空白取消，
+    // 确认页会立刻 back（在栈底时即表现为退出应用）。
+    this._openedAt = Date.now()
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    const self = this
+    device.getInfo({
+      success: function (res) {
+        var c = isCompactScreen(res.screenWidth, res.screenHeight)
+        var r = isRoundScreen(res.screenWidth, res.screenHeight)
+        // Mutating page data during the first render frame trips an LVGL
+        // rendering assertion on device; flip only after it settles.
+        setTimeout(function () {
+          if (self.compact !== c) self.compact = c
+          if (self.round !== r) self.round = r
+        }, 150)
+      },
+      fail: function () {}
+    })
+    hydrateApp()
+    this.disarm()
+  },
+  onHide() {
+    this.disarm()
+  },
+  onDestroy() {
+    this.disarm()
+  },
+  // 交互（2026-08-20 按用户预期调整）：点一下按钮 → 3 秒倒计时结束比赛
+  // （倒计时内再点一下=立即结束，不用等满）；点空白处取消。
+  // Vela 不派发 touchstart/touchend，长按方案不可用；click 会冒泡到
+  // .screen 的 onCancel 且 stopPropagation 拦不住，用时间窗守卫过滤按钮
+  // 冒泡上来的同一次点击。
+  onConfirm(evt) {
+    this._tappedAt = Date.now()
+    if (evt && evt.stopPropagation) evt.stopPropagation()
+    if (this.endArmed) {
+      this.executeEnd()
+      return
+    }
+    this.endArmed = true
+    this.countdown = 3
+    this.confirmLabel = '3 秒后结束比赛'
+    clearInterval(this._armTimer)
+    this._armTimer = setInterval(() => {
+      this.countdown -= 1
+      if (this.countdown <= 0) {
+        this.executeEnd()
+        return
+      }
+      this.confirmLabel = this.countdown + ' 秒后结束比赛'
+    }, 1000)
+  },
+  executeEnd() {
+    this.disarm()
+    Promise.resolve(confirmEnd()).then(() => {
+      router.replace({ uri: 'pages/Saved' })
+    })
+  },
+  disarm() {
+    clearInterval(this._armTimer)
+    this._armTimer = null
+    this.endArmed = false
+    this.countdown = 0
+    this.confirmLabel = '确认结束比赛'
+  },
+  onCancel() {
+    if (Date.now() - (this._openedAt || 0) < 600) return
+    if (Date.now() - (this._tappedAt || 0) < 600) return
+    this.disarm()
+    router.back()
+  },
+  // 返回手势 = 取消确认，返回控制页（常规流程下 back 落到来源页）
+  onBackGesture(evt) {
+    if (evt && evt.direction === 'right') {
+      this._tappedAt = 0
+      this.disarm()
+      router.back()
+    }
+  }
+}
+</script>
+
+<style>
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 0 20px;
+  align-items: center;
+  background-color: #050505;
+}
+/* 圆屏居中：全宽容器 + 水平/垂直双居中，不依赖 flex:1 占位
+   （S4 镜像上 flex 拉伸不可靠，内容曾整体堆到左上） */
+.fit {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+/* ---- 圆屏差异覆盖（单类名 + 模板三元绑定；Vela 运行时 `.round .xxx`
+   后代选择器不生效——见 History 页注释） ---- */
+.fit-round {
+  width: 336px;
+}
+.end-btn-round {
+  width: 296px;
+  align-self: center;
+}
+.wrap-round {
+  margin-bottom: 26px;
+}
+.spacer {
+  flex: 1;
+}
+.wrap {
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 34px;
+}
+.title {
+  color: #e5e5dc;
+  font-size: 40px;
+  line-height: 50px;
+  font-weight: bold;
+  text-align: center;
+}
+.sub {
+  color: #9d9d95;
+  font-size: 17px;
+  line-height: 29px;
+  text-align: center;
+}
+.end-btn {
+  width: 296px;
+  align-self: center;
+  height: 88px;
+  border-radius: 999px;
+  background-color: rgba(255, 90, 69, 0.12);
+  border: 2px;
+  border-color: rgba(255, 90, 69, 0.45);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.end-armed {
+  border-color: rgba(255, 90, 69, 0.85);
+  background-color: rgba(255, 90, 69, 0.22);
+}
+.stop-icon {
+  width: 20px;
+  height: 20px;
+  border: 2px;
+  border-color: #ff5a45;
+  border-radius: 2px;
+  margin-right: 10px;
+}
+.end-label {
+  color: #ff5a45;
+  font-size: 21px;
+  line-height: 29px;
+  font-weight: bold;
+}
+.cancel {
+  color: #9d9d95;
+  font-size: 17px;
+  line-height: 24px;
+  margin-top: 22px;
+  text-align: center;
+}
+
+</style>

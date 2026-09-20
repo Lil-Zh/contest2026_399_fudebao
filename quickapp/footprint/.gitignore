@@ -1,0 +1,18 @@
+# Dependencies and Quick App build outputs
+node_modules/
+build/
+dist/
+.mimosa/
+
+# Local IDE, simulator and graphics-driver state
+.vscode/
+NVIDIA Corporation/
+
+# Local temporary packages and diagnostic output
+.temp_lynx_tracker_vela/
+.temp_screens/
+*.log
+
+# Draft QA recordings are retained locally; only approved final recordings
+# belong in submission/video/.
+demo_raw/

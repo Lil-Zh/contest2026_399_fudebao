@@ -1,0 +1,371 @@
+<template>
+  <div class="screen" onswipe="onBackGesture">
+    <div class="fit" style="left: {{enterX}}px;">
+      <block if="{{ready}}">
+      <div class="status-space"></div>
+      <div class="top">
+        <text class="title">比赛记录</text>
+      </div>
+
+      <block if="{{empty}}">
+        <div class="empty-wrap">
+          <div class="football-icon">
+            <div class="ball-core"></div>
+            <div class="ball-line ball-line-a"></div>
+            <div class="ball-line ball-line-b"></div>
+            <div class="ball-line ball-line-c"></div>
+          </div>
+          <text class="empty-title">还没有比赛记录</text>
+          <text class="empty-sub empty-sub-first">完成的每一场比赛都会保存在这里</text>
+        </div>
+        <div class="empty-cta" onclick="onStartFirst">
+          <text class="empty-cta-text">去记录第一场</text>
+        </div>
+      </block>
+
+      <list else class="list" scrollpage="true" onswipe="onBackGesture">
+        <list-item class="match-wrap" for="{{rows}}" tid="key" type="history">
+          <div class="swipe-track" onswipe="onRowSwipe($item.key)">
+          <div class="match-card {{deleteKey === $item.key ? 'match-card-open' : ''}}" onclick="onRowTap($item.key)">
+            <div class="num-col">
+              <text class="duration">{{ $item.duration }}</text>
+              <text class="distance">{{ $item.distance }}</text>
+            </div>
+            <div class="card-main">
+              <text class="match-title">{{ $item.title }}</text>
+              <text class="match-meta">{{ $item.meta }}</text>
+            </div>
+            <image class="card-chev" src="/assets/images/chevron_right_gray.png"></image>
+          </div>
+            <block if="{{deleteKey === $item.key}}">
+            <div class="delete-action" onclick="onDeleteRecord($item.key)">
+              <text class="delete-action-text">删除</text>
+            </div>
+            </block>
+          </div>
+        </list-item>
+      </list>
+
+      <div class="dots">
+        <div class="dot-off"></div>
+        <div class="dot-on"></div>
+      </div>
+      </block>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import device from '@system.device'
+import { attachStorage, enterSlideFrame, historyView, hydrateApp, isCompactScreen, markBackFromHistory, removeHistoryRecord, storageAdapter, useApp } from '../../common/app_state.js'
+
+export default {
+  private: {
+    compact: false,
+    ready: false,
+    empty: true,
+    rows: [],
+    deleteKey: '',
+    enterX: 0
+  },
+  onShow() {
+    this.ready = false
+    this.deleteKey = ''
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    const self = this
+    device.getInfo({
+      success: function (res) {
+        var c = isCompactScreen(res.screenWidth, res.screenHeight)
+        setTimeout(function () {
+          if (self.compact !== c) self.compact = c
+        }, 150)
+      },
+      fail: function () {}
+    })
+    hydrateApp().then(() => {
+      this.refresh()
+      this.ready = true
+      this.animateEnter(384)
+    }).catch(() => {
+      this.refresh()
+      this.ready = true
+      this.animateEnter(384)
+    })
+  },
+  onDestroy() {
+    clearInterval(this._enterAnim)
+  },
+  // 进入动画：从屏幕外滑到 0，盖在旧页上（原生 left，避免动态 transform 中断首帧渲染）
+  animateEnter(fromX) {
+    clearInterval(this._enterAnim)
+    const startedAt = Date.now()
+    const self = this
+    const draw = function () {
+      const frame = enterSlideFrame(fromX, Date.now() - startedAt, 200)
+      if (frame.x !== self.enterX) self.enterX = frame.x
+      if (frame.done) {
+        clearInterval(self._enterAnim)
+        self._enterAnim = null
+      }
+    }
+    this.enterX = fromX
+    this._enterAnim = setInterval(draw, 16)
+  },
+  refresh() {
+    const view = historyView()
+    this.empty = view.empty
+    this.rows = view.rows
+  },
+  onStartFirst() {
+    router.replace({ uri: 'pages/Recovery' })
+  },
+  onRowSwipe(sessionId, evt) {
+    if (!evt) return
+    if (evt.direction === 'left') {
+      if (evt.stopPropagation) evt.stopPropagation()
+      this.deleteKey = sessionId
+      return
+    }
+    if (evt.direction === 'right') {
+      if (evt.stopPropagation) evt.stopPropagation()
+      this.onBackGesture(evt)
+    }
+  },
+  onDeleteRecord(sessionId, evt) {
+    if (evt && evt.stopPropagation) evt.stopPropagation()
+    if (removeHistoryRecord(sessionId)) {
+      this.deleteKey = ''
+      this.refresh()
+    }
+  },
+  // 点按记录查看该场的运动信息；详情页经路由 params 收 sessionId
+  // （设备上每页独立 VM，内存传参不可靠，storage 又过重）
+  onRowTap(sessionId, evt) {
+    if (evt && evt.stopPropagation) evt.stopPropagation()
+    router.push({ uri: 'pages/MatchDetail', params: { sessionId: sessionId } })
+  },
+  onBackGesture(evt) {
+    if (!evt || evt.direction !== 'right') return
+    // 行/列表/屏幕三级 onswipe 让一次右滑冒泡触发最多三次（stopPropagation
+    // 在该 runtime 无效），时间窗去重：避免连弹多级路由、误退出应用
+    const now = Date.now()
+    if (this._lastBackAt && now - this._lastBackAt < 400) return
+    this._lastBackAt = now
+    if (this.deleteKey) {
+      this.deleteKey = ''
+      return
+    }
+    markBackFromHistory()
+    router.back()
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  background-color: #050505;
+}
+.fit {
+  width: 384px;
+  height: 100%;
+  flex-direction: column;
+  position: relative;
+}
+.status-space {
+  height: 52px;
+}
+.top {
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.title {
+  color: #e5e5dc;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 700;
+}
+.card-chev {
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+}
+.list {
+  flex: 1;
+  flex-direction: column;
+  width: 384px;
+}
+.match-wrap {
+  width: 384px;
+  height: 92px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.swipe-track {
+  position: relative;
+  width: 384px;
+  height: 92px;
+}
+.delete-action {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 84px;
+  height: 92px;
+  border: 1px;
+  border-color: rgba(255, 90, 69, 0.65);
+  border-radius: 20px;
+  background-color: transparent;
+  align-items: center;
+  justify-content: center;
+}
+.delete-action-text {
+  color: #ff5a45;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.match-card {
+  /* 参考图二的胶囊卡：#161818 纯底、无描边、全圆角药丸形；
+     左大数字锚点 + 中间信息列 + 右侧进入详情的箭头。
+     固定宽度可避免删除轨道把静止卡片压窄；左外边距 18px 让卡片
+     在 384px 内容列里水平居中，不再贴左边。 */
+  margin-left: 18px;
+  width: 348px;
+  height: 92px;
+  flex-direction: row;
+  align-items: center;
+  background-color: #161818;
+  border-radius: 999px;
+  padding: 0 18px 0 24px;
+  transition-property: margin-left;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+.num-col {
+  flex-direction: column;
+  margin-right: 14px;
+}
+.card-main {
+  flex: 1;
+  flex-direction: column;
+}
+/* 左滑弹出删除：卡片右缘与删除按钮左缘都落在 x=300（轨道 384 - 删除 84），
+   删除紧贴记录不留空隙 */
+.match-card-open {
+  margin-left: -48px;
+}
+.match-title {
+  color: #e5e5dc;
+  font-size: 17px;
+  line-height: 23px;
+  font-weight: 600;
+}
+.duration {
+  color: #e5e5dc;
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.distance {
+  color: #9d9d95;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+.match-meta {
+  color: #9d9d95;
+  font-size: 13px;
+  line-height: 18px;
+  margin-top: 3px;
+}
+.dots {
+  height: 10px;
+  margin-top: -10px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.dot-on,
+.dot-off {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.dot-on { background-color: #e5e5dc; }
+.dot-off { background-color: #5d5d58; }
+.empty-wrap {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.football-icon {
+  width: 56px;
+  height: 56px;
+  border: 2px;
+  border-color: #5d5d58;
+  border-radius: 28px;
+  align-items: center;
+  justify-content: center;
+}
+.ball-core {
+  width: 12px;
+  height: 12px;
+  border: 2px;
+  border-color: #9d9d95;
+  border-radius: 3px;
+}
+.ball-line {
+  position: absolute;
+  width: 14px;
+  height: 1px;
+  background-color: #5d5d58;
+}
+.ball-line-a { top: 17px; left: 20px; }
+.ball-line-b { top: 36px; left: 8px; }
+.ball-line-c { top: 36px; right: 8px; }
+.empty-title {
+  color: #e5e5dc;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  margin-top: 18px;
+}
+.empty-sub {
+  color: #9d9d95;
+  font-size: 14px;
+  line-height: 20px;
+}
+.empty-sub-first { margin-top: 10px; }
+.empty-cta {
+  height: 64px;
+  border-radius: 32px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+}
+.empty-cta-text {
+  color: #050505;
+  font-size: 21px;
+  line-height: 30px;
+  font-weight: 700;
+}
+</style>

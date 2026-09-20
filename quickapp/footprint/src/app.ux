@@ -1,0 +1,15 @@
+<script>
+import { attachHealth, attachStorage, detachHealth, healthAdapter, storageAdapter } from './common/app_state.js'
+import storage from '@system.storage'
+import health from '@service.health'
+
+export default {
+  onCreate() {
+    attachStorage(storageAdapter(storage))
+    attachHealth(healthAdapter(health))
+  },
+  onDestroy() {
+    detachHealth()
+  }
+}
+</script>

@@ -1,0 +1,141 @@
+{
+  "package": "com.lynxtracker.collector",
+  "name": "LynxTracker",
+  "versionName": "0.2.0",
+  "versionCode": 2,
+  "minPlatformVersion": 1040,
+  "deviceTypeList": [
+    "watch"
+  ],
+  "icon": "/assets/images/logo.png",
+  "features": [
+    {
+      "name": "system.router"
+    },
+    {
+      "name": "system.storage"
+    },
+    {
+      "name": "system.geolocation"
+    },
+    {
+      "name": "system.battery"
+    },
+    {
+      "name": "system.device"
+    },
+    {
+      "name": "system.network"
+    },
+    {
+      "name": "system.vibrator"
+    },
+    {
+      "name": "system.app"
+    },
+    {
+      "name": "system.prompt"
+    },
+    {
+      "name": "service.health"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "hapjs.permission.LOCATION"
+    },
+    {
+      "name": "hapjs.permission.DEVICE_INFO"
+    },
+    {
+      "name": "hapjs.permission.HEALTH"
+    }
+  ],
+  "config": {
+    "designWidth": 466,
+    "background": {
+      "features": [
+        "service.health"
+      ]
+    }
+  },
+  "router": {
+    "entry": "pages/Recovery",
+    "pages": {
+      "pages/Recovery": {
+        "component": "index"
+      },
+      "pages/Prematch": {
+        "component": "index"
+      },
+      "pages/Record": {
+        "component": "index"
+      },
+      "pages/Halftime": {
+        "component": "index"
+      },
+      "pages/EndConfirm": {
+        "component": "index"
+      },
+      "pages/Saved": {
+        "component": "index"
+      },
+      "pages/History": {
+        "component": "index"
+      },
+      "pages/MatchDetail": {
+        "component": "index"
+      },
+      "pages/PitchSelector": {
+        "component": "index"
+      },
+      "pages/PitchSelect": {
+        "component": "index"
+      },
+      "pages/CustomPitch": {
+        "component": "index"
+      }
+    }
+  },
+  "display": {
+    "backgroundColor": "#050505",
+    "fullScreen": true,
+    "titleBar": false,
+    "orientation": "portrait",
+    "pages": {
+      "pages/Recovery": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/Prematch": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/Record": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/Halftime": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/EndConfirm": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/Saved": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/History": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/MatchDetail": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/PitchSelector": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/PitchSelect": {
+        "titleBarText": "LynxTracker"
+      },
+      "pages/CustomPitch": {
+        "titleBarText": "LynxTracker"
+      }
+    }
+  }
+}

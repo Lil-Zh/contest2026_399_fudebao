@@ -1,0 +1,23 @@
+{
+  "name": "lynx-tracker-vela",
+  "version": "0.2.0",
+  "private": true,
+  "description": "LynxTracker REDMI Watch 6 match collector (Xiaomi Vela JS app, packaged as .rpk)",
+  "scripts": {
+    "test": "node test/algorithms.test.mjs && node test/match_session.test.mjs && node test/app_state.test.mjs && node test/health_source.test.mjs && node test/full_flow.test.mjs && node test/adaptive.test.mjs && node test/panel_motion.test.mjs && node test/saved_navigation.test.mjs && node test/vertical_balance.test.mjs && node test/startup_landing.test.mjs && node test/quick_start.test.mjs && node test/history_page.test.mjs && node test/history_delete.test.mjs && node test/history_detail.test.mjs && node test/record_handle.test.mjs",
+    "build": "hap build",
+    "watch": "hap watch",
+    "release": "hap release",
+    "server": "hap server"
+  },
+  "devDependencies": {
+    "aiot-toolkit": "^2.0.5",
+    "hap-toolkit": "^2.0.9-beta.3"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "browserslist": [
+    "chrome 65"
+  ]
+}

@@ -1,0 +1,224 @@
+<template>
+  <div class="screen screen-round">
+    <div class="fit fit-round">
+      <div class="status-space"></div>
+      <text class="page-title">自定义球场</text>
+
+      <div class="form-card">
+        <text class="field-label">球场名称</text>
+        <input class="name-input" type="text" value="{{name}}" placeholder="自定义球场" onchange="onNameChange">
+      </div>
+
+      <div class="dimension-row">
+        <div class="dim-card">
+          <text class="field-label">长度 (m)</text>
+          <text class="dim-value">{{length}}</text>
+          <div class="stepper">
+            <div class="step-btn" onclick="onLengthMinus">
+              <text class="step-text">-</text>
+            </div>
+            <div class="step-btn step-btn-plus" onclick="onLengthPlus">
+              <text class="step-text">+</text>
+            </div>
+          </div>
+        </div>
+        <div class="dim-card">
+          <text class="field-label">宽度 (m)</text>
+          <text class="dim-value">{{width}}</text>
+          <div class="stepper">
+            <div class="step-btn" onclick="onWidthMinus">
+              <text class="step-text">-</text>
+            </div>
+            <div class="step-btn step-btn-plus" onclick="onWidthPlus">
+              <text class="step-text">+</text>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="save-cta {{canSave ? '' : 'save-cta-disabled'}}" onclick="onSave">
+        <text class="save-cta-text">保存</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import { attachStorage, createCustomPitch, storageAdapter } from '../../common/app_state.js'
+import storage from '@system.storage'
+
+const MIN_LENGTH = 10
+const MAX_LENGTH = 200
+const MIN_WIDTH = 5
+const MAX_WIDTH = 100
+const STEP = 1
+
+export default {
+  private: {
+    name: '自定义球场',
+    length: 40,
+    width: 20,
+    canSave: true
+  },
+  onShow() {
+    attachStorage(storageAdapter(storage))
+  },
+  onNameChange(evt) {
+    if (!evt) return
+    const raw = (evt.value || evt.text || '').trim()
+    this.canSave = raw.length > 0
+    this.name = raw || '自定义球场'
+  },
+  onLengthMinus() {
+    if (this.length > MIN_LENGTH) this.length -= STEP
+  },
+  onLengthPlus() {
+    if (this.length < MAX_LENGTH) this.length += STEP
+  },
+  onWidthMinus() {
+    if (this.width > MIN_WIDTH) this.width -= STEP
+  },
+  onWidthPlus() {
+    if (this.width < MAX_WIDTH) this.width += STEP
+  },
+  onSave() {
+    if (!this.canSave) return
+    createCustomPitch(this.name, this.length, this.width).then(() => {
+      router.back()
+    }).catch(() => {})
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  background-color: #050505;
+}
+.fit {
+  width: 376px;
+  height: 100%;
+  flex-direction: column;
+}
+.screen-round {
+  padding: 0;
+}
+.fit-round {
+  width: 336px;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+.status-space {
+  height: 52px;
+}
+.page-title {
+  color: #e5e5dc;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+  margin-top: 6px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.form-card {
+  width: 336px;
+  border-radius: 18px;
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  flex-direction: column;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.field-label {
+  color: #9d9d95;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 8px;
+}
+.name-input {
+  color: #e5e5dc;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  background-color: transparent;
+}
+.dimension-row {
+  width: 336px;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.dim-card {
+  width: 162px;
+  border-radius: 18px;
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0 12px;
+}
+.dim-value {
+  color: #e5e5dc;
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 700;
+  font-family: NumBold;
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+.stepper {
+  flex-direction: row;
+  align-items: center;
+}
+.step-btn {
+  width: 44px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: #252626;
+  align-items: center;
+  justify-content: center;
+}
+.step-btn-plus {
+  margin-left: 12px;
+}
+.step-text {
+  color: #e5e5dc;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 600;
+}
+.spacer {
+  flex: 1;
+}
+.save-cta {
+  width: 296px;
+  height: 54px;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  align-self: center;
+}
+.save-cta-disabled {
+  opacity: 0.35;
+}
+.save-cta-text {
+  color: #050505;
+  font-size: 19px;
+  line-height: 27px;
+  font-weight: 600;
+}
+</style>

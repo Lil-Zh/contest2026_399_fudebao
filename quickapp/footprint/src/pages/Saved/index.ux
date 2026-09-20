@@ -1,0 +1,283 @@
+<template>
+  <div class="screen {{round ? 'round' : ''}}" onswipe="onBackGesture" style="{{compact ? 'padding: 36px 0 20px;' : ''}}">
+    <div class="fit {{round ? 'fit-round' : ''}}">
+    <block if="{{ready}}">
+      <div class="status-space"></div>
+      <div class="ok-wrap {{round ? 'ok-wrap-round' : ''}}">
+        <div class="check-circle" style="{{compact ? 'width: 60px; height: 60px; border-radius: 30px;' : ''}}">
+          <text class="check-icon">✓</text>
+        </div>
+        <text class="ok-title" style="{{compact ? 'font-size: 24px; line-height: 30px; margin-top: 12px;' : ''}}">已保存到手表</text>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <text class="row-lab">时长</text>
+          <text class="row-val">{{duration}}</text>
+        </div>
+        <div class="row">
+          <text class="row-lab">距离</text>
+          <text class="row-val">{{distance}}</text>
+        </div>
+        <div class="row row-last">
+          <text class="row-lab">平均心率</text>
+          <text class="row-val">{{avgHr}}</text>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="cta {{round ? 'cta-round' : ''}}" onclick="onDone" style="{{compact ? 'height: 58px; border-radius: 29px;' : ''}}">
+        <text class="cta-text">完成</text>
+      </div>
+    </block>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import device from '@system.device'
+import { archiveCurrentMatch, attachStorage, hydrateApp, isRoundScreen, savedView, storageAdapter, tickWorld, useApp, isCompactScreen } from '../../common/app_state.js'
+
+export default {
+  private: {
+    // 先完成持久化状态水合，再渲染/刷新摘要。否则定时器可能将
+    // 刚进入页面的有效比赛误判为空，并错误跳回赛前检查页。
+    ready: false,
+    compact: false,
+    round: false,
+    duration: '',
+    distance: '',
+    avgHr: '--'
+  },
+  onShow() {
+    this._leaving = false
+    this.ready = false
+    this._app = useApp()
+    attachStorage(storageAdapter(storage))
+    const self = this
+    device.getInfo({
+      success: function (res) {
+        var c = isCompactScreen(res.screenWidth, res.screenHeight)
+        var r = isRoundScreen(res.screenWidth, res.screenHeight)
+        // Mutating page data during the first render frame trips an LVGL
+        // rendering assertion on device; flip only after it settles.
+        setTimeout(function () {
+          if (self.compact !== c) self.compact = c
+          if (self.round !== r) self.round = r
+        }, 150)
+      },
+      fail: function () {}
+    })
+    hydrateApp().then(() => {
+      if (this._leaving) return
+      this.refresh()
+      this.ready = true
+    })
+    this._timer = setInterval(() => {
+      if (!this.ready) return
+      const app = this._app
+      tickWorld(app.world, null)
+      this.refresh()
+    }, 1000)
+  },
+  onHide() {
+    clearInterval(this._timer)
+  },
+  onDestroy() {
+    clearInterval(this._timer)
+  },
+  refresh() {
+    const view = savedView()
+    if (!view) {
+      // Saved can be the root route after Recovery -> EndConfirm -> Saved.
+      // A back() from that stack closes the app, so always choose a concrete
+      // safe destination when there is no finished match to display.
+      if (!this._leaving) router.replace({ uri: 'pages/Recovery' })
+      return
+    }
+    this.duration = view.duration
+    this.distance = view.distance
+    this.avgHr = view.avgHr
+  },
+  onDone() {
+    // 归档后回到 Recovery 选球场枢纽页（主流程入口；Prematch 由 Recovery 的请开始比赛进入）
+    // archiveCurrentMatch clears app.match synchronously before its storage
+    // write resolves. Lock refresh during that short gap; otherwise its timer
+    // sees an empty view and can navigate away before this replace completes.
+    if (this._leaving) return
+    this._leaving = true
+    Promise.resolve(archiveCurrentMatch()).then(() => {
+      router.replace({ uri: 'pages/Recovery' })
+    })
+  },
+  // 返回手势 = 完成（含同步失败分支）：归档回赛前检查页
+  onBackGesture(evt) {
+    if (evt && evt.direction === 'right') this.onDone()
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* 底部 56px 吸收圆屏弧区：CTA(296px 宽) 底边落在 y=410，
+     该处弦宽 303px 刚好容纳（y>414 时弦宽不足按钮必出弧） */
+  padding: 12px 0 56px;
+  align-items: center;
+  background-color: #050505;
+}
+/* 圆屏确定性布局：336px 安全列居中 + 顶部锚定，
+   不依赖 flex:1 占位（此镜像 flex 拉伸不可靠，内容曾整体堆在上半部） */
+.fit {
+  width: 336px;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+/* ---- 圆屏差异覆盖（单类名 + 模板三元绑定；Vela 运行时 `.round .xxx`
+   后代选择器不生效——见 History 页注释） ---- */
+.fit-round {
+  width: 336px;
+}
+.ok-wrap-round {
+  margin-top: 0px;
+}
+.fail-wrap-round {
+  margin-top: 40px;
+}
+.cta-round {
+  width: 296px;
+  align-self: center;
+  border-radius: 999px;
+}
+.later-btn-round {
+  width: 296px;
+  align-self: center;
+  border-radius: 999px;
+}
+.ok-wrap {
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+/* 圆屏顶部系统状态栏预留（与其他圆屏页统一；36px + 页面 12px 上内边距
+   让大勾圆顶边落在 y=48，避开 52px 状态栏） */
+.status-space {
+  height: 36px;
+}
+.check-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+}
+.check-icon {
+  color: #0a0a0a;
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: bold;
+}
+.ok-title {
+  color: #e5e5dc;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+.rows {
+  flex-direction: column;
+  width: 336px;
+  margin-top: 12px;
+}
+.row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 2px;
+  border-bottom: 1px;
+  border-bottom-color: #1a1c1d;
+}
+.row-last {
+  border-bottom-width: 0;
+}
+.row-lab {
+  color: #9d9d95;
+  font-size: 15px;
+  line-height: 21px;
+}
+.row-val {
+  color: #e5e5dc;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  font-family: NumBold;
+}
+.fail-wrap {
+  flex-direction: column;
+  align-items: center;
+  margin-top: 40px;
+}
+.fail-icon {
+  color: #ffb020;
+  font-size: 40px;
+  line-height: 48px;
+}
+.fail-title {
+  color: #e5e5dc;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: bold;
+  margin-top: 12px;
+}
+.fail-sub {
+  color: #9d9d95;
+  font-size: 15px;
+  line-height: 21px;
+  margin-top: 10px;
+  text-align: center;
+}
+.spacer {
+  flex: 1;
+}
+.cta {
+  width: 296px;
+  height: 54px;
+  align-self: center;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+  margin-top: 18px;
+}
+.cta-text {
+  color: #0a0a0a;
+  font-size: 23px;
+  line-height: 32px;
+  font-weight: bold;
+}
+.later-btn {
+  width: 296px;
+  height: 48px;
+  align-self: center;
+  border-radius: 999px;
+  background-color: #181a1b;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+.later-btn-text {
+  color: #e5e5dc;
+  font-size: 17px;
+  line-height: 24px;
+}
+
+</style>

@@ -1,0 +1,421 @@
+<template>
+  <div class="screen">
+    <div class="fit" onswipe="onHistorySwipe" style="left: {{enterX}}px;">
+    <!-- 正常启动（无未完成比赛）的首页：选球场欢迎页。
+         首次使用没有选中球场时停在这里，选完再进赛前检查页 -->
+    <block if="{{launch}}">
+      <div class="status-space"></div>
+      <!-- 固定宽元素的水平居中不能靠 align-self（该运行时实测偏左），
+           统一包进全宽 justify-center 行里（与 Record 页按钮同法） -->
+      <div class="pitch-row">
+        <image class="pitch-img" src="/assets/images/pitch_diagram.png"></image>
+      </div>
+      <!-- 球场名整行可点，进独立选择器页；返回时 onShow 重读选中结果 -->
+      <div class="pitch-selector" onclick="onOpenPitchSelector">
+        <text class="launch-name">{{pitchName}}</text>
+        <image class="launch-chev" src="/assets/images/chevron_down_offwhite.png"></image>
+      </div>
+      <text class="launch-sub">{{pitchSub}}</text>
+      <div class="launch-spacer"></div>
+      <div class="btn-row">
+        <div class="launch-cta {{canStart ? '' : 'launch-cta-disabled'}}" onclick="onStart">
+          <text class="launch-cta-text {{canStart ? '' : 'launch-cta-text-disabled'}}">请开始比赛</text>
+        </div>
+      </div>
+      <div class="bottom-space"></div>
+      <div class="launch-dots">
+        <div class="dot-on"></div>
+        <div class="dot-off"></div>
+      </div>
+    </block>
+    <block if="{{ready && !launch}}">
+      <text class="tag {{broken ? 'tag-warn' : ''}}">{{broken ? '发现未完成的比赛 · 数据异常' : '发现未完成的比赛'}}</text>
+      <div class="card">
+        <text class="field {{broken ? 'field-dim' : ''}}">{{fieldName}}</text>
+        <div class="elapsed-row">
+          <text class="elapsed-prefix">已进行</text>
+          <text class="elapsed {{broken ? 'elapsed-dim' : ''}}">{{elapsed}}</text>
+        </div>
+        <text class="reassure">{{broken ? '已记录的轨迹与心率仍然完整' : '记录一直保存在手表上'}}</text>
+      </div>
+      <div class="spacer"></div>
+      <block if="{{broken}}">
+        <div class="cta" onclick="onSaveCorrupt">
+          <text class="cta-text">保存这场比赛</text>
+        </div>
+        <div class="second second-disabled">
+          <text class="second-text second-text-disabled">无法继续记录</text>
+        </div>
+      </block>
+      <block else>
+        <div class="cta" onclick="onContinue">
+          <text class="cta-text">继续记录</text>
+        </div>
+        <div class="second" onclick="onEndSave">
+          <text class="second-text">结束并保存</text>
+        </div>
+      </block>
+    </block>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import storage from '@system.storage'
+import { archiveCorruptMatch, attachStorage, consumeBackFromHistory, enterSlideFrame, formatClock, hydrateApp, recoveryPitchView, storageAdapter, useApp } from '../../common/app_state.js'
+
+export default {
+  private: {
+    ready: false,
+    launch: false,
+    broken: false,
+    canStart: false,
+    pitchName: '请选择球场',
+    pitchSub: '',
+    fieldName: '',
+    elapsed: '00:00',
+    enterX: 0
+  },
+  onShow() {
+    this._app = useApp()
+    this._historyRouting = false
+    attachStorage(storageAdapter(storage))
+    const self = this
+    // 启动分发最高优先级：本地有未结束（recording/paused/halfTime）的比赛
+    // 才停留本页；否则停在选球场欢迎页（launch），不再跳进赛前检查页。
+    // 处理完即离开，下次启动时若比赛仍在进行则再次出现。
+    hydrateApp().then(() => {
+      const app = self._app
+      const fromBack = consumeBackFromHistory()
+      const match = app.match
+      self.refreshLaunch()
+      if (match && match.phase !== 'finished') {
+        self.fieldName = match.plan.fieldName
+        self.elapsed = formatClock(match.elapsedSeconds)
+        self.ready = true
+        return
+      }
+      if (!match || match.phase === 'finished') {
+        if (app.matchCorrupt) {
+          self.broken = true
+          self.fieldName = '未知球场'
+          self.elapsed = '--:--'
+          self.ready = true
+          return
+        }
+        self.enterX = fromBack ? -384 : 0
+        self.launch = true
+        if (fromBack) self.animateEnter(-384)
+        self.ready = true
+        return
+      }
+    }).catch(function () {
+      router.replace({ uri: 'pages/Prematch' })
+    })
+    // 保底：3 秒后若仍黑屏（storage 异常/路由静默失败），强制跳转
+    this._fallback = setTimeout(function () {
+      if (!self.ready) router.replace({ uri: 'pages/Prematch' })
+    }, 3000)
+  },
+  onHide() {
+    clearTimeout(this._fallback)
+  },
+  onDestroy() {
+    clearTimeout(this._fallback)
+    clearInterval(this._enterAnim)
+  },
+  // 进入动画：从屏幕外滑到 0，盖在旧页上（原生 left，避免动态 transform 中断首帧渲染）
+  animateEnter(fromX) {
+    clearInterval(this._enterAnim)
+    const startedAt = Date.now()
+    const self = this
+    const draw = function () {
+      const frame = enterSlideFrame(fromX, Date.now() - startedAt, 200)
+      if (frame.x !== self.enterX) self.enterX = frame.x
+      if (frame.done) {
+        clearInterval(self._enterAnim)
+        self._enterAnim = null
+      }
+    }
+    this.enterX = fromX
+    this._enterAnim = setInterval(draw, 16)
+  },
+  // 欢迎页的球场显示与开始按钮状态：从选择器页返回时 onShow 会重跑分发，
+  // 这里随 hydrateApp 一并刷新
+  refreshLaunch() {
+    const view = recoveryPitchView()
+    this.pitchName = view.pitchName
+    this.pitchSub = view.selected ? view.pitchSize : '请选择一个球场'
+    this.canStart = view.canStart
+  },
+  // 首页态左滑进比赛记录（右邻页，点阵 ●○）；未完成比赛恢复态不响应，保持单一决策
+  onHistorySwipe(evt) {
+    if (!this.launch) return
+    if (!evt || evt.direction !== 'left' || this._historyRouting) return
+    this._historyRouting = true
+    router.push({ uri: 'pages/History' })
+  },
+  onOpenPitchSelector() {
+    router.push({ uri: 'pages/PitchSelector' })
+  },
+  // 选完球场才允许进入赛前检查页；未选时按钮置灰，点按直接忽略
+  onStart() {
+    if (!this.canStart) return
+    router.replace({ uri: 'pages/Prematch' })
+  },
+  // 继续：elapsedSeconds 等状态本就持久化，Record 页的 tickWorld 从原值
+  // 继续走表；轨迹/心率历史在 packets/pending 里完整保留。halfTime 状态的
+  // 比赛会被 Record.onShow 正确转发到中场页。
+  onContinue() {
+    if (this.broken) return
+    router.replace({ uri: 'pages/Record' })
+  },
+  // 结束并保存：走正常收尾（结束确认页 3 秒倒计时 → 已保存页），不是丢弃。
+  onEndSave() {
+    if (this.broken) return
+    router.push({ uri: 'pages/EndConfirm' })
+  },
+  // 异常态：保存损坏比赛归档到台账，清 active_match，回赛前检查页。
+  onSaveCorrupt() {
+    if (!this.broken) return
+    archiveCorruptMatch().then(() => {
+      router.replace({ uri: 'pages/Prematch' })
+    })
+  }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: NumBold;
+  src: url('/assets/fonts/NumBold.ttf');
+}
+.screen {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 0 20px;
+  align-items: center;
+  background-color: #050505;
+}
+/* 适配层：固定 376px 内容列居中。大赛 5.0 镜像的快应用视口（约 488px）
+   比面板（432px）宽且居中，居中内容列在两种镜像下都恰好落在可视安全区 */
+.fit {
+  width: 376px;
+  height: 100%;
+  flex-direction: column;
+  position: relative;
+}
+/* ---- 正常启动欢迎页（选球场首页） ---- */
+.status-space {
+  height: 52px;
+}
+/* 球场示意图：gen-pitch.cjs 生成的抗锯齿 PNG（圆角边界/中线/中圈/禁区） */
+.pitch-row {
+  width: 100%;
+  flex-direction: row;
+  justify-content: center;
+  margin-top: 30px;
+}
+.pitch-img {
+  width: 224px;
+  height: 148px;
+}
+/* 球场名 + 下拉标：整行可点，进独立选择器页 */
+.pitch-selector {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-top: 22px;
+}
+.launch-name {
+  color: #e5e5dc;
+  font-size: 26px;
+  line-height: 34px;
+  font-weight: 700;
+}
+.launch-chev {
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+}
+.launch-sub {
+  color: #9d9d95;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 8px;
+  text-align: center;
+}
+.btn-row {
+  width: 100%;
+  flex-direction: row;
+  justify-content: center;
+}
+.launch-spacer {
+  flex: 1;
+}
+/* 请开始比赛：296×54 黄底胶囊；未选球场时置灰不可点。
+   水平居中由外层 .btn-row（全宽 justify-center）负责 */
+.launch-cta {
+  width: 296px;
+  height: 54px;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+}
+.launch-cta-disabled {
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+}
+.launch-cta-text {
+  color: #050505;
+  font-size: 21px;
+  line-height: 30px;
+  font-weight: 700;
+}
+.launch-cta-text-disabled {
+  color: #5d5d58;
+}
+.bottom-space {
+  height: 46px;
+}
+/* 页点：absolute bottom 16px，水平居中，不占流式布局；右邻页=比赛记录 */
+.launch-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  height: 7px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.dot-on {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background-color: #e5e5dc;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.dot-off {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background-color: #5d5d58;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.tag {
+  color: #e5e5dc;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  /* Recovery is a deliberate return point, not a status bar: keep the
+     contextual copy in the visual middle while actions remain bottom-safe. */
+  margin-top: 46px;
+  margin-bottom: 18px;
+}
+.tag-warn {
+  color: #ffb020;
+}
+.card {
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  border-radius: 20px;
+  padding: 22px;
+  flex-direction: column;
+  align-items: center;
+}
+.field {
+  color: #e5e5dc;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 800;
+  text-align: center;
+}
+.field-dim {
+  color: #9d9d95;
+}
+.elapsed-row {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  margin-top: 12px;
+}
+.elapsed-prefix {
+  color: #9d9d95;
+  font-size: 16px;
+  line-height: 22px;
+  margin-right: 8px;
+}
+.elapsed {
+  color: #e5e5dc;
+  font-size: 34px;
+  line-height: 40px;
+  font-weight: 700;
+  font-family: NumBold;
+}
+.elapsed-dim {
+  color: #9d9d95;
+}
+.reassure {
+  color: #5d5d58;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 10px;
+}
+.spacer {
+  height: 10px;
+}
+.cta {
+  height: 64px;
+  width: 296px;
+  align-self: center;
+  margin-left: 40px;
+  margin-right: 40px;
+  border-radius: 999px;
+  background-color: #e7ff00;
+  align-items: center;
+  justify-content: center;
+}
+.cta-text {
+  color: #050505;
+  font-size: 24px;
+  line-height: 33px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.second {
+  height: 64px;
+  width: 296px;
+  align-self: center;
+  margin-left: 40px;
+  margin-right: 40px;
+  border-radius: 999px;
+  background-color: #161818;
+  border: 1px;
+  border-color: rgba(229, 229, 220, 0.12);
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+.second-disabled {
+  border-color: transparent;
+}
+.second-text {
+  color: #e5e5dc;
+  font-size: 24px;
+  line-height: 33px;
+}
+.second-text-disabled {
+  color: #5d5d58;
+}
+</style>
