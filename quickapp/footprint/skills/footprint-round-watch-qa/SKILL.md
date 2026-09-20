@@ -1,41 +1,38 @@
 ---
 name: footprint-round-watch-qa
-description: 开发或回归测试足迹 Vela 足球比赛采集快应用时使用。覆盖 466×466 圆表盘布局、比赛状态流转、本地优先保存与模拟器验证；不用于真机能力宣称或通用网页开发。
+description: Use when changing Footprint Vela pages for a 466x466 round watch, especially when circular safe-area clipping, Recovery layout, swipe navigation, or round-screen regressions are reported.
 ---
 
-# 足迹圆表盘快应用开发与回归
+# Verifying Footprint Round-Watch Changes
 
-目标是在不破坏比赛数据与手势导航的前提下，调整足迹快应用的圆表盘界面或比赛流程，并保留可重复的验证证据。
+Use this skill before calling a Footprint circular-watch UI change complete. Its core rule is: a visual adjustment is not verified until the round-screen structure and the targeted regressions both pass.
 
-## 工作范围
+## Scope
 
-- 应用根目录为 `quickapp/footprint`；设计基准为 `466 × 466`，配置见 `src/config-watch.json`。
-- 视觉变量沿用现有黑底与荧光黄体系：背景 `#050505`、主操作 `#e7ff00`、异常提示 `#ffb020`。不要为局部页面另建色板。
-- `src/common/app_state.js` 是比赛状态与持久化的事实源；页面只消费 view model，不在页面中复制比赛规则。
+- Project root: `quickapp/footprint`.
+- The round baseline is `config-watch.json` with `designWidth: 466`.
+- Keep the existing design variables; do not change square-screen styles merely to repair the round view.
+- Treat GNSS, heart rate, phone connection, and sync values in the simulator as Demo/Test data unless a device test proves otherwise.
 
-## 圆屏布局约束
+## Run the verifier
 
-- 圆屏上下弦切区不能放置标题、主按钮或可点击的删除操作。调整页面时同时检查 Prematch、Record、Recovery、Saved 和 History。
-- 记录页与控制页应保留顶部下拉提示；历史页左滑仅展开当前条目的删除操作，右滑仍可返回赛前页。
-- Recovery 页保持不可垂直滚动，恢复态与异常态均需让卡片和两个按钮完整落在安全区内。
-- 赛前检查的密集状态行保持稳定节点更新；不要因每次传感器 tick 重建复杂列表树。
+From `quickapp/footprint`:
 
-## 比赛规则不可回归
+```powershell
+node skills/footprint-round-watch-qa/scripts/check-round-watch.mjs .
+node skills/footprint-round-watch-qa/scripts/check-round-watch.mjs . --run
+```
 
-- 选球场后可本地快速开赛；手机连接不是开赛或保存的前置条件。
-- 上半场结束后，下半场进攻方向自动反转。
-- 暂停只停止计时推进；GNSS 暂失时，计时和心率记录继续。
-- 未结束比赛在重新打开时进入恢复页；完成比赛优先保存到手表本地。
-- 删除历史记录只影响目标本地记录，不能删除其他比赛或当前未完成比赛。
+The first command checks the 466 baseline, Recovery page's `screen-round` and `fit-round` markers, non-scrollable root, and presence of the relevant regression tests. The second command also runs the round-layout, Recovery, history-delete, prematch-stability, and vertical-balance tests.
 
-## 验证顺序
+## Interpreting a failure
 
-1. 修改状态逻辑时先运行 `npm test`，并补充或更新与该行为对应的测试。
-2. 修改圆屏布局时至少覆盖 `vertical_balance`、`round_layout`、`recovery_round_layout`、`history_delete` 和 `prematch_round_stability` 相关断言。
-3. 需要产物时运行 `npm run build`；构建成功只说明 RPK 已生成，不代表真机已验证。
-4. 需要模拟器演示时使用现有 `$vela-sim-autostart` 流程。模拟 GNSS、心率、手机连接和同步状态必须在说明中标为 Demo/Test 数据。
+| Failure | Required response |
+| --- | --- |
+| `designWidth must be 466` | Do not use this Skill's sizing baseline; restore the intended device configuration or create a different device-specific check. |
+| Recovery class failure | Apply the existing `.round` mechanism at the Recovery root and safe content column; do not paper over clipping by shrinking unrelated global styles. |
+| Regression test failure | Fix the named page or state behavior, then run the verifier again. |
 
-## 交付边界
+## Delivery boundary
 
-- 代码、测试、Skill 与 `README.md` 进入参赛仓库；`node_modules`、构建缓存和录屏原始片段不进入 Git。
-- 技术报告与演示视频按赛事提交页面要求单独上传；仓库中仅保留必要的运行说明或可公开的构建产物。
+Run `npm test` after behavior changes and `npm run build` when an RPK is required. A successful build proves only that an RPK was generated; it does not prove physical device sensors or a real match session.
