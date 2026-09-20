@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "team_id": "contest2026_399_fudebao",
+  "github_login": "Lil-Zh",
+  "generator": "backfill-sqlite@mimocode",
+  "sessions": [
+    {
+      "session_id": "ses_-ffe5fdc5035cdffeX7Ejp5qDO",
+      "tool": "mimocode",
+      "started_at": "2026-08-21T09:38:38.290Z",
+      "last_event_at": "2026-08-21T11:43:17.004Z",
+      "event_count": 71,
+      "file_path": "logs/Lil-Zh/2026-08-21/mimocode__ses_-ffe5fdc5035cdffeX7Ejp5qDO.jsonl",
+      "collection_mode": "backfill-sqlite",
+      "health": "ok"
+    },
+    {
+      "session_id": "ses_-ffe5fdc49d48dffe580UUikOC",
+      "tool": "mimocode",
+      "started_at": "2026-08-21T09:45:36.378Z",
+      "last_event_at": "2026-08-21T09:48:39.022Z",
+      "event_count": 7,
+      "file_path": "logs/Lil-Zh/2026-08-21/mimocode__ses_-ffe5fdc49d48dffe580UUikOC.jsonl",
+      "collection_mode": "backfill-sqlite",
+      "health": "ok"
+    },
+    {
+      "session_id": "ses_-ffe5fdc2da979ffeiwSnwO7yB",
+      "tool": "mimocode",
+      "started_at": "2026-08-21T10:16:22.412Z",
+      "last_event_at": "2026-08-21T10:17:33.609Z",
+      "event_count": 5,
+      "file_path": "logs/Lil-Zh/2026-08-21/mimocode__ses_-ffe5fdc2da979ffeiwSnwO7yB.jsonl",
+      "collection_mode": "backfill-sqlite",
+      "health": "ok"
+    },
+    {
+      "session_id": "ses_-ffe5fdbe7a88bffeaefclsdY0",
+      "tool": "mimocode",
+      "started_at": "2026-08-21T11:32:50.181Z",
+      "last_event_at": "2026-08-21T11:33:57.168Z",
+      "event_count": 3,
+      "file_path": "logs/Lil-Zh/2026-08-21/mimocode__ses_-ffe5fdbe7a88bffeaefclsdY0.jsonl",
+      "collection_mode": "backfill-sqlite",
+      "health": "ok"
+    }
+  ],
+  "updated_at": "2026-09-20T07:17:56.327297+00:00"
+}
